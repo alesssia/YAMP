@@ -1,0 +1,113 @@
+# Yet Another Metagenomic Pipeline (YAMP)
+
+Thanks to the increased cost-effectiveness of high-throughput technologies, the number of studies focusing on microorganisms (bacteria, archaea, microbial eukaryotes, fungi, and viruses) and on their connections with human health and diseases has surged, and, consequently, a plethora of approaches and software has been made available for their study, making it difficult to select the best methods and tools. 
+
+Here we present Yet Another Metagenomic Pipeline (YAMP) that, starting from the raw sequencing data and having a strong focus on quality control, allows, within hours, the data processing up to the functional annotation (please refer to the YAMP [wiki](https://github.com/alesssia/YAMP/wiki) for more information).
+
+YAMP is constructed on [Nextflow](https://github.com/nextflow-io/nextflow), a framework based on the dataflow programming model, which allows writing workflows that are highly parallel, easily portable (including on distributed systems), and very flexible and customisable, characteristics which have been inherited by YAMP. New modules can be added easily and the existing ones can be customised -- even though we have already provided default parameters deriving from our own experience.
+
+YAMP is accompanied by a [Docker container](https://www.docker.com/), that saves the users from the hassle of installing the required software, increasing, at the same time, the reproducibility of the YAMP results (see [the Using Docker section](#using-docker)).
+
+
+## Table of contents
+
+- [Dependencies](#dependencies)
+- [Installation](#installation)
+- [Other requirements](#other-requirements)
+- [Usage](#usage)
+- [Using Docker](#using-docker)
+- [License](#license)
+- [Acknowledgements](#acknowledgements)
+
+
+
+## Dependencies
+
+- Nextflow ([https://github.com/nextflow-io/nextflow](https://github.com/nextflow-io/nextflow))
+- fastQC v0.11.2+ ([http://www.bioinformatics.babraham.ac.uk/projects/fastqc](http://www.bioinformatics.babraham.ac.uk/projects/fastqc))
+- BBmap v36.92+ ([https://sourceforge.net/projects/bbmap](http://www.bioinformatics.babraham.ac.uk/projects/fastqc))
+- Samtools v1.3.1 ([http://samtools.sourceforge.net](http://samtools.sourceforge.net))
+- MetaPhlAn2 v2.0+ ([https://bitbucket.org/biobakery/metaphlan2](https://bitbucket.org/biobakery/metaphlan2))
+- QIIME v1.9.1+ ([http://qiime.org](http://qiime.org))
+- HUMAnN2 v0.9.9+ ([https://bitbucket.org/biobakery/humann2](https://bitbucket.org/biobakery/humann2))
+
+These tools need to be in the system path with execute and read permission. Notably, MetaPhlAn2, QIIME, and HUMAnN2 are also available in [bioconda](https://anaconda.org/bioconda/). 
+
+The required tools are also included in a Docker container (please refer to [the Using Docker section](#using-docker)). If using the container, Docker ([https://www.docker.com](https://www.docker.com)) should be installed.
+
+
+## Installation
+
+Clone the YAMP repository in a directory of your choice:
+
+```
+git clone https://github.com/alesssia/YAMP.git
+```
+
+The repository includes:
+
+- the Nextflow script, `YAMP.nf`, 
+- the configuration files, `nextflow.config`
+- a folder (`bin`) containing two helper scripts (`fastQC.sh` and `logQC.sh`),
+- a folder (`yampdocker`) containing the Docker file used to build the Docker image (`Dockerfile`). 
+
+**Note:** the `nextflow.config` file includes the parameters that are used in our tutorials (check the YAMP [wiki](https://github.com/alesssia/YAMP/wiki)!).
+
+
+## Other requirements
+
+YAMP requires a set of databases that are queried during its execution. Some of them should be automatically downloaded when installing the tools listed in the dependencies (or using specialised scripts, as those available with HUMAnN2), whilst other should be created by the user. Specifically, you will need:
+
+- a FASTA file listing the adapter sequences to remove in the trimming step. This file should be available within the BBmap installation. If not, please download it from [here](https://github.com/BioInfoTools/BBMap/blob/master/resources/adapters.fa);
+- two FASTA file describing synthetic contaminants. These files (`sequencing_artifacts.fa.gz` and `phix174_ill.ref.fa.gz`) should be available within the BBmap installation. If not, please download them from [here](https://sourceforge.net/projects/bbmap/);
+- a FASTA file describing the contaminating genome(s). This file should be created by the users according to the contaminants present in their dataset. When analysing human metagenome, we suggest the users to always include the human genome. Please note that this file should be indexed beforehand. This can be done using BBMap, using the following command: `bbmap.sh -Xmx24G ref=my_contaminants_genomes.fa.gz `. 
+	We suggest to download the FASTA file provided by Brian Bushnell for removing human contamination, using the instruction available [here](http://seqanswers.com/forums/showthread.php?t=42552);
+- the BowTie2 database file for MetaPhlAn2. This file should be available within the MetaPhlAn2 installation. If not, please download it from [here](https://bitbucket.org/biobakery/metaphlan2/src/40d1bf693089836b5895623dd9ab1b21eb9a794c/db_v20/);
+- the ChocoPhlAn and UniRef databases, that can be downloaded directly by HUMAnN2, as explained [here](https://bitbucket.org/biobakery/humann2/wiki/Home#markdown-header-5-download-the-databases);
+- [optional] a phylogenetic tree used by QIIME to compute a set of alpha-diversity measures (see [here](http://qiime.org/scripts/alpha_diversity.html) for details).
+
+
+## Usage
+
+1. Modify the `nextflow.config` file, specifying the necessary parameters, such as the path to the aforementioned databases.
+2. From a terminal window run the `YAMP.nf` script using the following command:
+	```
+	nextflow run YAMP.nf --reads1 R1 --reads2 R2 --prefix mysample --outdir outputdir
+	```
+	where `R1` and `R2` represent the path to the raw data (two compressed FASTQ file), `mysample` is a prefix that will be used to label all the resulting files, and `outputdir` is the directory where the results will be stored. 
+
+Does it seem complicate? In the YAMP [wiki](https://github.com/alesssia/YAMP/wiki) there are some tutorials!
+
+
+## Using Docker
+
+To use the tools made available through the Docker container, one could either pull the pre-built image from [DockerHub](https://hub.docker.com/r/alesssia/yampdocker/), using the following command:
+
+```
+docker pull alesssia/yampdocker
+```
+
+or build a local image using the file `Dokerfile` in  the `yampdocker` folder. To build a local image, one should first access the `yampdocker` folder and then run the following command (be careful to add the dot!):
+
+```
+docker build -t yampdocker .
+```
+
+In both cases, the image can be used by YAMP by running the command presented above adding `-with-docker` followed by the image name (`yampdocker`):
+
+```
+nextflow run YAMP.nf --reads1 R1 --reads2 R2 --prefix mysample --outdir outputdir -with-docker yampdocker
+```
+
+where `R1` and `R2` represent the path to the raw data (two compressed FASTQ file), `mysample` is a prefix that will be used to label all the resulting files, and `outputdir` is the directory where the results will be stored. 
+
+
+## License
+
+YAMP is licensed under GNU GPL v3.
+
+
+## Acknowledgements
+
+Alessia would like to thank Brian Bushnell for his helpful suggestions about how to successfully use the BBmap suite in a metagenomics context and for providing several useful resources, and Paolo Di Tommaso, for helping me in using Nextflow properly!
+
