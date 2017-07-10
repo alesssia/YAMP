@@ -36,7 +36,14 @@
 	
 if (params.mode != "QC" && params.mode != "characterisation" && params.mode != "complete") {
 	exit 1, "Mode not available. Chose any of <QC, characterisation, complete>"
-}	
+}
+
+//--reads1 and --reads2 can be omitted (and the default read from the config file) only
+//when mode is "characterisation"
+if (params.mode != "characterisation" && (params.reads1 == "/dev/null" || params.reads2 == "/dev/null") ) {
+	exit 1, "Please set the reads1 and/or reads2 parameters"
+}
+	
 
 //Creates working dir
 workingpath = params.outdir + "/" + params.prefix
