@@ -16,6 +16,7 @@ YAMP is accompanied by a [Docker container](https://www.docker.com/), that saves
 - [Other requirements](#other-requirements)
 - [Usage](#usage)
 - [Using Docker](#using-docker)
+- [Changelog](#changelog)
 - [License](#license)
 - [Acknowledgements](#acknowledgements)
 
@@ -72,9 +73,9 @@ YAMP requires a set of databases that are queried during its execution. Some of 
 1. Modify the `nextflow.config` file, specifying the necessary parameters, such as the path to the aforementioned databases.
 2. From a terminal window run the `YAMP.nf` script using the following command:
 	```
-	nextflow run YAMP.nf --reads1 R1 --reads2 R2 --prefix mysample --outdir outputdir
+	nextflow run YAMP.nf --reads1 R1 --reads2 R2 --prefix mysample --outdir outputdir --mode MODE
 	```
-	where `R1` and `R2` represent the path to the raw data (two compressed FASTQ file), `mysample` is a prefix that will be used to label all the resulting files, and `outputdir` is the directory where the results will be stored. 
+	where `R1` and `R2` represent the path to the raw data (two compressed FASTQ file), `mysample` is a prefix that will be used to label all the resulting files, `outputdir` is the directory where the results will be stored, and `MODE` is any of the following: < QC, characterisation, complete >.
 
 Does it seem complicate? In the YAMP [wiki](https://github.com/alesssia/YAMP/wiki) there are some tutorials!
 
@@ -96,10 +97,18 @@ docker build -t yampdocker .
 In both cases, the image can be used by YAMP by running the command presented above adding `-with-docker` followed by the image name (`yampdocker`):
 
 ```
-nextflow run YAMP.nf --reads1 R1 --reads2 R2 --prefix mysample --outdir outputdir -with-docker yampdocker
+nextflow run YAMP.nf --reads1 R1 --reads2 R2 --prefix mysample --outdir outputdir --mode MODE -with-docker yampdocker
 ```
 
-where `R1` and `R2` represent the path to the raw data (two compressed FASTQ file), `mysample` is a prefix that will be used to label all the resulting files, and `outputdir` is the directory where the results will be stored. 
+where `R1` and `R2` represent the path to the raw data (two compressed FASTQ file), `mysample` is a prefix that will be used to label all the resulting files, `outputdir` is the directory where the results will be stored, and `MODE` is any of the following: < QC, characterisation, complete >.
+
+
+## Changelog
+
+### 0.9.2 / 2017-07-10 
+
+Enhancements:
+* YAMP can now be run in three *"modes"* : < QC, characterisation, complete >.
 
 
 ## License

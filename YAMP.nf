@@ -25,14 +25,18 @@
 /**
 	STEP 0. 
 	
-	Creates the so-called working directory directory were the results are stored
-	(if it does not exists) as well as the log file.
+	Checks input parameters (mode only) and creates the so-called working directory
+	were the results are stored (if it does not exists) as well as the log file.
 	
 	The working directory is named after the prefix and located in the outdir 
 	folder. The log file, that will save summary statistics, execution time,
 	and warnings generated during the pipeline execution, will be saved in the 
 	working directory as "prefix.log".
 */
+	
+if (params.mode != "QC" && params.mode != "characterisation" && params.mode != "complete") {
+	exit 1, "Mode not available. Chose any of <QC, characterisation, complete>"
+}	
 
 //Creates working dir
 workingpath = params.outdir + "/" + params.prefix
@@ -48,7 +52,7 @@ mylog = file(params.outdir + "/" + params.prefix + "/" + params.prefix + ".log")
 
 //Logs headers
 mylog <<  """---------------------------------------------
-YET ANOTHER METAGENOMIC PIPELINE (YAMP) v 0.9.1
+YET ANOTHER METAGENOMIC PIPELINE (YAMP) v 0.9.2
 ---------------------------------------------
 	
 Copyright (C) 2017 Dr Alessia Visconti   <alessia.visconti@kcl.ac.uk>
@@ -69,9 +73,9 @@ Analysed samples are: $params.reads1 and $params.reads2
 Working directory set to $workingdir
 New files will be saved using the '$params.prefix' prefix
 
-Doing community characterisation? $params.qconly
-Saving QC temporary files? $params.keepQCtmpfile
-Saving community characterisation temporary files? $params.keepCCtmpfile
+Analysis mode? $params.mode
+Saving QC temporary files (if performed)? $params.keepQCtmpfile
+Saving community characterisation temporary files (if performed)? $params.keepCCtmpfile
 	     
 ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++   
 	   
@@ -105,6 +109,9 @@ process qualityAssessmentRaw {
 	file ".log.1$label" into log1
 	file "${params.prefix}_R${label}_fastqc.html" 
 	file "${params.prefix}_R${label}_fastqc_data.txt" 
+
+	when:
+	  params.mode == "QC" || params.mode == "complete"
 
    	script:
 	"""		
@@ -152,6 +159,9 @@ process dedup {
 	set file("${params.prefix}_dedupe_R1.fq.gz"), file("${params.prefix}_dedupe_R2.fq.gz") into totrim
 	set file("${params.prefix}_dedupe_R1.fq.gz"), file("${params.prefix}_dedupe_R2.fq.gz") into topublishdedupe
 
+	when:
+	  params.mode == "QC" || params.mode == "complete"
+
 	script:
 	"""
 	#Measures execution time
@@ -190,15 +200,15 @@ process dedup {
 	STEP 3. Trimming of low quality bases and of adapter sequences. Short reads
 	are discarded. A decontamination of synthetic sequences is also pefoermed.
 	When either forward or reverse of a paired-end read are discarded, the
-	surviving read is saved on a file of singleton reads.
+	surviving reads are saved on a file of singleton reads.
 
 	Three compressed FASTQ file (forward/reverse paired-end and singleton reads)
 	are outputed. Several information are logged.
 */
 
 //Two outputs will be produced (and pushed into two different channels): one
-//included the paired trimmed reads, that will be QCed, the other the paired
-//trimmed reads along with the singleton reads, that will be concatenated
+//included the paired trimmed reads, that will be QC'ed, the other the paired
+//trimmed reads along with the singleton reads, that will be decontaminated
 process trim {
 
 	input:
@@ -214,6 +224,9 @@ process trim {
 	set file("${params.prefix}_dedupe_R1.fq.gz"), file("${params.prefix}_dedupe_R2.fq.gz") into toremovetrimming
 	set file("${params.prefix}_trimmed_R1.fq"), file("${params.prefix}_trimmed_R2.fq"), file("${params.prefix}_trimmed_singletons.fq") into topublishtrim 	
 
+	when:
+	  params.mode == "QC" || params.mode == "complete"
+
    	script:
 	"""
 	#Measures execution time
@@ -224,7 +237,7 @@ process trim {
 
 	#Trim adapters and low quality sequences
 	bbduk.sh -Xmx$maxmem in=$reads1 in2=$reads2 out=${params.prefix}_trimmed_R1_tmp.fq out2=${params.prefix}_trimmed_R2_tmp.fq outs=${params.prefix}_trimmed_singletons_tmp.fq ktrim=r k=$params.kcontaminants mink=$params.mink hdist=$params.hdist qtrim=rl trimq=$params.phred  minlength=$params.minlength ref=$adapters qin=$params.qin threads=$threads tbo tpe ow &> tmp.log
-
+	
 	#Logs some figures about sequences passing trimming
 	echo  \"BBduk's trimming stats (trimming adapters and low quality sequences): \" >> .log.3
 	sed -n '/Input:/,/Result:/p' tmp.log >> .log.3
@@ -284,6 +297,9 @@ process qualityAssessmentTrimmed {
 	file "${params.prefix}_trimmed_R${label}_fastqc.html"
 	file "${params.prefix}_trimmed_R${label}_fastqc_data.txt"
 
+	when:
+	  params.mode == "QC" || params.mode == "complete"
+
    	script:
 	"""
 	#Measures execution time
@@ -322,6 +338,8 @@ process qualityAssessmentTrimmed {
 	Two files are outputted: the FASTQ of the decontaminated reads (including both
 	paired-reads and singletons) and that of the contaminating reads (that can be
 	used for refinements/checks).
+	Please note that if keepQCtmpfile is set to false, the file of the contaminating 
+	reads is discarded
 
 	TODO: use BBsplit for multiple organisms decontamination
 */
@@ -340,6 +358,9 @@ process decontaminate {
 	file "${params.prefix}_clean.fq" into toprofiletaxa
 	file "${params.prefix}_clean.fq" into toprofilefunctionreads
 	file "${params.prefix}_cont.fq" into topublishdecontaminate
+
+	when:
+	  params.mode == "QC" || params.mode == "complete"
 	
 	script:
 	"""
@@ -350,7 +371,7 @@ process decontaminate {
 	echo \" \" >> .log.5
 
 	bbwrap.sh  -Xmx$maxmem mapper=bbmap append=t in1=$infile1,$infile12 in2=$infile2,null outu=${params.prefix}_clean.fq outm=${params.prefix}_cont.fq minid=$params.mind maxindel=$params.maxindel bwr=$params.bwr bw=12 minhits=2 qtrim=rl trimq=$params.phred path=$refForeingGenome qin=$params.qin threads=$threads untrim quickmatch fast ow &> tmp.log
-
+	
 	#Logs some figures about decontaminated/contaminated reads
 	echo  \"BBmap's human decontamination stats (paired reads): \" >> .log.5
 	sed -n '/Read 1 data:/,/N Rate:/p' tmp.log | head -17 >> .log.5
@@ -400,6 +421,9 @@ process qualityAssessmentClean {
 	file "${params.prefix}_clean_fastqc.html" 
 	file "${params.prefix}_clean_fastqc_data.txt" 
 
+	when:
+	  params.mode == "QC" || params.mode == "complete"
+
    	script:
 	"""		
 	#Measures execution time
@@ -426,6 +450,15 @@ process qualityAssessmentClean {
 	"""	
 }
 
+
+//When doing community characterisation from previously QC'd files, this file should be 
+//pushed in the corret channels.
+//Please note that the name of the file externally QC'ed should be the same of the 
+//one geneared by the YAMP, that is prefix_clean.fq, and should include ALL the reads.
+if (params.mode == "characterisation") {
+	toprofiletaxa =  Channel.from( file("$workingdir/${params.prefix}_clean.fq") )
+	toprofilefunctionreads = Channel.from( file("$workingdir/${params.prefix}_clean.fq") )
+}
 
 /**
 	STEP 7. Performs taxonomic binning and estimates the microbial relative abundancies.
@@ -454,7 +487,7 @@ process profileTaxa {
 	file "${params.prefix}_bt2out.txt" into topublishprofiletaxa
 
 	when:
-	  !params.qconly
+	  params.mode == "characterisation" || params.mode == "complete"
 
 	script:
 	"""
@@ -514,7 +547,7 @@ process alphaDiversity {
 	file "${params.prefix}_alpha_diversity.tsv"
 	
 	when:
-	  !params.qconly
+	  params.mode == "characterisation" || params.mode == "complete"
 
 	script:
 	"""
@@ -562,16 +595,16 @@ process alphaDiversity {
 	While the aligners are forced to be Bowtie2 and DIAMOND, the user can
 	select the UniRef database to use (UniRef50, UniRef90).
 
-	It outputs several files, and some of them may be removed by following
-	steps (according to the chosen parameters). Namely, it creates:
+	It outputs several files, and some of them will be removed if keepCCtmpfile is
+	set to false. Namely, it creates:
 	- three tab-separated files representing the gene families, and the pathways'
 	  coverahe and abundancies
-	- a SAM file representing the full alignment from Bowtie2 (this file will
-	  be either removed or converted to BAM)
+	- a SAM file representing the full alignment from Bowtie2 (saved only if keepCCtmpfile
+	  is set to true)
     - two tab-separated file representing the reduced aligned reads from both
-	  Bowtie2 and DIAMOND (this file can be removed)
+	  Bowtie2 and DIAMOND (saved only if keepCCtmpfile is set to true)
 	- two FASTA file, representing the unaligned reads from both Bowtie2 and
-	  DIAMOND (this file will be either removed or compressed)
+	  DIAMOND (saved only if keepCCtmpfile is set to true)
 	- a log of the execution
 */
 
@@ -585,9 +618,7 @@ process profileFunction {
 	file(chocophlan) from Channel.fromPath( params.chocophlan, type: 'dir' )
 	file(uniref) from Channel.fromPath( params.uniref, type: 'dir' )
 	
-	
     output:
-	//This is the real output
 	file ".log.9" into log9
 	file "${params.prefix}_HUMAnN2.log"
 	file "${params.prefix}_genefamilies.tsv"
@@ -598,7 +629,7 @@ process profileFunction {
 	set ("${params.prefix}_bowtie2_aligned.sam", "${params.prefix}_bowtie2_aligned.tsv", "${params.prefix}_diamond_aligned.tsv", "${params.prefix}_bowtie2_unaligned.fa", "${params.prefix}_diamond_unaligned.fa") into topublishhumann2	
 
 	when:
-	  !params.qconly
+	  params.mode == "characterisation" || params.mode == "complete"
 
 	script:
 	"""
@@ -618,11 +649,10 @@ process profileFunction {
 	grep \"Total gene families after translated alignment:\" ${params.prefix}_HUMAnN2.log >> .log.9 || true
 	grep \"Unaligned reads after translated alignment:\" ${params.prefix}_HUMAnN2.log >> .log.9 || true
 
-	#Some of the temporary files (if they exist) will be moved in the working directory, 
-	#will be the cleanup process that decides which of these will be kept, converted/compressed 
-	#or removed. The others (such as the bowties2 indexes), are are removed.
-	#Those that should be moved, but have not been created by HUMAnN2, are now created by the 
-	#script (they are needed as output for the channel)
+	#Some of temporary files (if they exist) may be moved in the working directory, 
+	#according to the keepCCtmpfile parameter. Others (such as the bowties2 indexes), 
+	#are always removed. Those that should be moved, but have not been created by 
+	#HUMAnN2, are now created by the script (they are needed as output for the channel)
 	files=(${params.prefix}_bowtie2_aligned.sam ${params.prefix}_bowtie2_aligned.tsv ${params.prefix}_diamond_aligned.tsv ${params.prefix}_bowtie2_unaligned.fa ${params.prefix}_diamond_unaligned.fa)
 	for i in {1..5}
 	do
@@ -657,6 +687,9 @@ process logQC {
 	input:
 	set file(log11), file(log12), file(log2), file(log3), file(log41), file(log42), file(log5), file(log6) from log1.flatMap().mix(log2, log3, log4.flatMap(), log5, log6).toSortedList( { a, b -> a.name <=> b.name } )
 
+	when:
+	params.mode == "QC" || params.mode == "complete"
+
 	script:
 	"""
 	cat $log11 $log12 $log2 $log3 $log41 $log42 $log5 $log6 >> $mylog
@@ -664,7 +697,7 @@ process logQC {
 }
 
 /**
-	CLEANUP 2. Saves the temporary files generate during QC (if the users requested so)
+	CLEANUP 2. Saves the temporary files generate during QC (if the user requested so)
 */
 
 	
@@ -679,7 +712,7 @@ process saveQCtmpfile {
 	file "$tmpfile"
 
 	when:
-	params.keepQCtmpfile
+	(params.mode == "QC" || params.mode == "complete") && params.keepQCtmpfile
 		
 	script:
 	"""
@@ -698,7 +731,7 @@ process logCC {
 	set file(log7), file(log8), file(log9) from log7.mix(log8, log9).flatMap().toSortedList( { a, b -> a.name <=> b.name } )
 	
 	when:
-	!params.qconly
+	params.mode == "characterisation" || params.mode == "complete"
 		
 	script:
 	"""
@@ -708,7 +741,7 @@ process logCC {
 
 /**
 	CLEANUP 4. Saves the temporary files generate during the community characterisation 
-	(if the users requested so)
+	(if the user requested so)
 */
 
 	
@@ -723,7 +756,7 @@ process saveCCtmpfile {
 	file "$tmpfile"
 
 	when:
-	!params.qconly && params.keepCCtmpfile
+	(params.mode == "characterisation" || params.mode == "complete") && params.keepCCtmpfile
 		
 	script:
 	"""
