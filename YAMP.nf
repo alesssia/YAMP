@@ -15,35 +15,55 @@
 	GNU General Public License for more details.
 	
 	You should have received a copy of the GNU General Public License
-	along with this script.  If not, see <http://www.gnu.org/licenses/>.
+	along with this script. If not, see <http://www.gnu.org/licenses/>.
 	
-	For any bugs or problems found, please contact us at
-	alessia.visconti@kcl.ac.uk
+	For any bugs or problems found, please contact us at:
+	- alessia.visconti@kcl.ac.uk ; 
+	- https://github.com/alesssia/YAMP/issues
 */
 
 	
 /**
 	STEP 0. 
 	
-	Checks input parameters (mode only) and creates the so-called working directory
-	were the results are stored (if it does not exists) as well as the log file.
+	Checks input parameters and (if it does not exists) creates the directory 
+	where the results will be stored (aka working directory). 
+	Initialises the log file.
 	
 	The working directory is named after the prefix and located in the outdir 
 	folder. The log file, that will save summary statistics, execution time,
 	and warnings generated during the pipeline execution, will be saved in the 
 	working directory as "prefix.log".
 */
-	
+
+
+//Checking user-defined parameters	
 if (params.mode != "QC" && params.mode != "characterisation" && params.mode != "complete") {
-	exit 1, "Mode not available. Chose any of <QC, characterisation, complete>"
+	exit 1, "Mode not available. Choose any of <QC, characterisation, complete>"
+}	
+
+if (params.librarylayout != "paired" && params.librarylayout != "single") { 
+	exit 1, "Library layout not available. Choose any of <single, paired>" 
+}   
+
+if (params.qin != 33 && params.qin != 64) { 
+	exit 1, "Input quality offset (qin) not available. Choose either 33 (ASCII+33) or 64 (ASCII+64)" 
+}   
+
+//--reads2 can be omitted when the library layout is "single" (indeed it specifies single-end
+//sequencing)
+if (params.librarylayout != "single" && (params.reads2 == "null") ) {
+	exit 1, "If dealing with paired-end reads, please set the reads2 parameters\nif dealing with single-end reads, please set the library layout to 'single'"
 }
 
-//--reads1 and --reads2 can be omitted (and the default read from the config file) only
-//when mode is "characterisation"
-if (params.mode != "characterisation" && (params.reads1 == "/dev/null" || params.reads2 == "/dev/null") ) {
+//--reads1 and --reads2 can be omitted (and the default from the config file used instead) 
+//only when mode is "characterisation". Obviously, --reads2 should be always omitted when the
+//library layout is single.
+if (params.mode != "characterisation" && ( (params.librarylayout == "paired" && (params.reads1 == "null" || params.reads2 == "null")) ||			
+ 							 			   params.librarylayout == "single" && params.reads1 == "null") ) {
 	exit 1, "Please set the reads1 and/or reads2 parameters"
 }
-	
+
 
 //Creates working dir
 workingpath = params.outdir + "/" + params.prefix
@@ -59,7 +79,7 @@ mylog = file(params.outdir + "/" + params.prefix + "/" + params.prefix + ".log")
 
 //Logs headers
 mylog <<  """---------------------------------------------
-YET ANOTHER METAGENOMIC PIPELINE (YAMP) v 0.9.2
+YET ANOTHER METAGENOMIC PIPELINE (YAMP) v 0.9.3
 ---------------------------------------------
 	
 Copyright (C) 2017 Dr Alessia Visconti   <alessia.visconti@kcl.ac.uk>
@@ -68,6 +88,7 @@ This pipeline is distributed in the hope that it will be useful
 but WITHOUT ANY WARRANTY. See the GNU GPL v3.0 for more details.
 
 Please report comments and bugs to: alessia.visconti@kcl.ac.uk						  
+Check http://github.com/alesssia/YAMP for updates.
 
 ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++   						   	   
 """
@@ -77,12 +98,14 @@ sysdate = new java.util.Date()
 mylog << """ 
 Analysis starting at $sysdate 
 Analysed samples are: $params.reads1 and $params.reads2
-Working directory set to $workingdir
+Results will be saved at $workingdir
 New files will be saved using the '$params.prefix' prefix
 
 Analysis mode? $params.mode
-Saving QC temporary files (if performed)? $params.keepQCtmpfile
-Saving community characterisation temporary files (if performed)? $params.keepCCtmpfile
+Library layout? $params.librarylayout
+Saving QC temporary files? $params.keepQCtmpfile
+Saving community characterisation temporary files? $params.keepCCtmpfile
+Performing de-duplication? $params.dedup	
 	     
 ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++   
 	   
@@ -93,16 +116,23 @@ Saving community characterisation temporary files (if performed)? $params.keepCC
 	STEP 1. Assessment of read quality of FASTQ file, done by FastQC. Multiple 
 	plots are generated to show average phred quality scores and other metrics.
 
-	This step will generate, for each paired-end, an HTML page, showing a summary 
-	of the results and a set of plots offering a visual guidanceand for assessing 
-	the quality of the sample, and a zip file, that includes the HTML page, all 
-	the images and a text report. The script will save the HTML page and the text 
-	report and delete the archive.
+	This step will generate (for each end, if the layout is paired) an HTML page,
+	showing a summary of the results and a set of plots offering a visual guidance
+	and for assessing the quality of the sample, and a zip file, that includes the 
+	HTML page, all the images and a text report. The script will save the HTML page 
+	and the text report and delete the archive.
 	Several information on multiple QC parameters are logged.
 */
 
+
 //Defines channel with <readfile, label> as input for fastQC script
-rawreads = Channel.from( [file(params.reads1), '1'], [file(params.reads2), '2'] )
+//When layout is single, the params.reads2 is not used
+if (params.librarylayout == "paired") {
+	rawreads = Channel.from( [file(params.reads1), '_R1'], [file(params.reads2), '_R2'] )
+}
+else {
+	rawreads = Channel.value( [file(params.reads1), ''] )
+}
 
 //This step is not a prerequisite for any other, so it does not redirect any of its output to channels
 process qualityAssessmentRaw {
@@ -114,26 +144,26 @@ process qualityAssessmentRaw {
 
 	output:
 	file ".log.1$label" into log1
-	file "${params.prefix}_R${label}_fastqc.html" 
-	file "${params.prefix}_R${label}_fastqc_data.txt" 
+	file "${params.prefix}*_fastqc.html" 
+	file "${params.prefix}*_fastqc_data.txt" 
 
 	when:
-	  params.mode == "QC" || params.mode == "complete"
+	(params.mode == "QC" || params.mode == "complete") 
 
    	script:
-	"""		
+	"""	
 	#Measures execution time
 	sysdate=\$(date)
 	starttime=\$(date +%s.%N)
 	echo \"Performing STEP 1 [Assessment of read quality of FASTQ file] at \$sysdate on $reads\" > .log.1$label
 	echo \" \" >> .log.1$label
-	
+	 
 	#Does QC, extracts relevant information, and removes temporary files
-	bash fastQC.sh $reads ${params.prefix}_R${label} $threads $reads
+	bash fastQC.sh $reads ${params.prefix}${label} $threads $reads
 	
 	#Logging QC statistics (number of sequences, Pass/warning/fail, basic statistics, duplication level, kmers)
 	base=\$(basename $reads)
-	bash logQC.sh \$base ${params.prefix}_R${label}_fastqc_data.txt .log.1$label
+	bash logQC.sh \$base ${params.prefix}${label}_fastqc_data.txt .log.1$label
 				
 	#Measures and log execution time			
 	endtime=\$(date +%s.%N)
@@ -149,13 +179,21 @@ process qualityAssessmentRaw {
 
 
 /**
-	STEP 2. De-duplication of paired reads. Only exact duplicates are removed.
+	STEP 2. De-duplication. Only exact duplicates are removed.
 
-	Two FASTQ files are outputted, one for each paired-end.
+	If the layout is "paired", two FASTQ files are outputted, one for each paired-end.
+	If "single", a single FASTQ file will be generated.
 */
 
 // Defines channel with <readfile1, readfile2> as input for de-duplicates
-todedup = Channel.value( [file(params.reads1), file(params.reads2)] )
+// When layout is single, the params.reads2 is not used, so nevermind its value
+if (params.librarylayout == "paired") {
+	todedup = Channel.value( [file(params.reads1), file(params.reads2)] )
+} 
+else {
+	todedup = Channel.value( [file(params.reads1), "null"] )
+}
+
 process dedup {
 	
 	input:
@@ -163,11 +201,11 @@ process dedup {
 
 	output:
 	file  ".log.2" into log2
-	set file("${params.prefix}_dedupe_R1.fq.gz"), file("${params.prefix}_dedupe_R2.fq.gz") into totrim
-	set file("${params.prefix}_dedupe_R1.fq.gz"), file("${params.prefix}_dedupe_R2.fq.gz") into topublishdedupe
+	file("${params.prefix}_dedupe*.fq.gz") into totrim
+	file("${params.prefix}_dedupe*.fq.gz") into topublishdedupe
 
 	when:
-	  params.mode == "QC" || params.mode == "complete"
+	(params.mode == "QC" || params.mode == "complete") && params.dedup
 
 	script:
 	"""
@@ -178,7 +216,11 @@ process dedup {
 	echo \" \" >> .log.2
 
 	#De-duplicates
-	clumpify.sh -Xmx$maxmem in1=$in1 in2=$in2 out1=${params.prefix}_dedupe_R1.fq.gz out2=${params.prefix}_dedupe_R2.fq.gz qin=$params.qin dedupe subs=0 threads=$threads &> tmp.log
+	if [ \"$params.librarylayout\" = \"paired\" ]; then
+		clumpify.sh -Xmx$maxmem in1=$in1 in2=$in2 out1=${params.prefix}_dedupe_R1.fq.gz out2=${params.prefix}_dedupe_R2.fq.gz qin=$params.qin dedupe subs=0 threads=$threads &> tmp.log
+	else
+		clumpify.sh -Xmx$maxmem in=$in1 out=${params.prefix}_dedupe.fq.gz qin=$params.qin dedupe subs=0 threads=$threads &> tmp.log
+	fi
 
 	#Logs some figures about sequences passing de-duplication
 	echo  \"BBduk's de-duplication stats: \" >> .log.2
@@ -206,72 +248,97 @@ process dedup {
 /**
 	STEP 3. Trimming of low quality bases and of adapter sequences. Short reads
 	are discarded. A decontamination of synthetic sequences is also pefoermed.
-	When either forward or reverse of a paired-end read are discarded, the
-	surviving reads are saved on a file of singleton reads.
+	If dealing with paired-end reads, when either forward or reverse of a paired-read
+	are discarded, the surviving read is saved on a file of singleton reads.
 
-	Three compressed FASTQ file (forward/reverse paired-end and singleton reads)
-	are outputed. Several information are logged.
+	If layout is "paired", three compressed FASTQ file (forward/reverse paired-end 
+	and singleton reads) are outputed, if "single", only one compressed FASTQ file
+	is returned. Several information are logged.
 */
 
-//Two outputs will be produced (and pushed into two different channels): one
-//included the paired trimmed reads, that will be QC'ed, the other the paired
-//trimmed reads along with the singleton reads, that will be decontaminated
+
+//When the de-suplication is not done, the raw file should be pushed in the corret channel
+if (!params.dedup) {
+	if (params.librarylayout == "paired") {
+		totrim = Channel.value( [file(params.reads1), file(params.reads2)] )
+	} 
+	else {
+		totrim = Channel.value( [file(params.reads1), "null"] )
+	}
+}
+
+//When single-end reads are used, the input tuple (singleton) will not match input set 
+//cardinality declared by 'trim' process (pair), so I push two mock files in the channel,
+//and then I take only the first two files
+mocktrim = Channel.from("null")
 process trim {
 
 	input:
-   	set file(reads1), file(reads2) from totrim
+   	set file(reads1), file(reads2) from totrim.concat(mocktrim).flatMap().take(2).buffer(size : 2)
 	file(adapters) from Channel.from( file(params.adapters) )
 	file(artifacts) from Channel.from( file(params.artifacts) )
 	file(phix174ill) from Channel.from( file(params.phix174ill) )
 
 	output:
 	file  ".log.3" into log3
-	set file("${params.prefix}_trimmed_R1.fq"), file("${params.prefix}_trimmed_R2.fq")  into trimmedreads
-	set file("${params.prefix}_trimmed_R1.fq"), file("${params.prefix}_trimmed_R2.fq"), file("${params.prefix}_trimmed_singletons.fq") into todecontaminate
-	set file("${params.prefix}_dedupe_R1.fq.gz"), file("${params.prefix}_dedupe_R2.fq.gz") into toremovetrimming
-	set file("${params.prefix}_trimmed_R1.fq"), file("${params.prefix}_trimmed_R2.fq"), file("${params.prefix}_trimmed_singletons.fq") into topublishtrim 	
+	file("${params.prefix}_trimmed*.fq") into trimmedreads
+	file("${params.prefix}_trimmed*.fq") into todecontaminate
+	file("${params.prefix}_trimmed*.fq") into topublishtrim 	
 
 	when:
-	  params.mode == "QC" || params.mode == "complete"
+	params.mode == "QC" || params.mode == "complete"
 
    	script:
-	"""
+	"""	
 	#Measures execution time
 	sysdate=\$(date)
 	starttime=\$(date +%s.%N)
 	echo \"Performing STEP 3 [Trimming] at \$sysdate\" > .log.3
 	echo \" \" >> .log.3
 
-	#Trim adapters and low quality sequences
-	bbduk.sh -Xmx$maxmem in=$reads1 in2=$reads2 out=${params.prefix}_trimmed_R1_tmp.fq out2=${params.prefix}_trimmed_R2_tmp.fq outs=${params.prefix}_trimmed_singletons_tmp.fq ktrim=r k=$params.kcontaminants mink=$params.mink hdist=$params.hdist qtrim=rl trimq=$params.phred  minlength=$params.minlength ref=$adapters qin=$params.qin threads=$threads tbo tpe ow &> tmp.log
+	#Trims adapters and low quality sequences
+	if [ \"$params.librarylayout\" = \"paired\" ]; then
+		bbduk.sh -Xmx$maxmem in=$reads1 in2=$reads2 out=${params.prefix}_trimmed_R1_tmp.fq out2=${params.prefix}_trimmed_R2_tmp.fq outs=${params.prefix}_trimmed_singletons_tmp.fq ktrim=r k=$params.kcontaminants mink=$params.mink hdist=$params.hdist qtrim=rl trimq=$params.phred  minlength=$params.minlength ref=$adapters qin=$params.qin threads=$threads tbo tpe ow &> tmp.log
+	else
+		bbduk.sh -Xmx$maxmem in=$reads1 out=${params.prefix}_trimmed_tmp.fq ktrim=r k=$params.kcontaminants mink=$params.mink hdist=$params.hdist qtrim=rl trimq=$params.phred  minlength=$params.minlength ref=$adapters qin=$params.qin threads=$threads tbo tpe ow &> tmp.log
+	fi
 	
 	#Logs some figures about sequences passing trimming
 	echo  \"BBduk's trimming stats (trimming adapters and low quality sequences): \" >> .log.3
 	sed -n '/Input:/,/Result:/p' tmp.log >> .log.3
-	echo \" \" >> .log.3
-	unpairedR=\$(wc -l ${params.prefix}_trimmed_singletons_tmp.fq | cut -d\" \" -f 1)
-	unpairedR=\$((\$unpairedR/4))
-	echo  \"\$unpairedR singleton reads whose mate was trimmed shorter preserved\" >> .log.3
-	echo \" \" >> .log.3
+	echo \" \" >> .log.3			
+	if [ \"$params.librarylayout\" = \"paired\" ]; then
+		unpairedR=\$(wc -l ${params.prefix}_trimmed_singletons_tmp.fq | cut -d\" \" -f 1)
+		unpairedR=\$((\$unpairedR/4))
+		echo  \"\$unpairedR singleton reads whose mate was trimmed shorter preserved\" >> .log.3
+		echo \" \" >> .log.3
+	fi
 
-	#Removes synthetic contaminants (paired reads)
-	bbduk.sh -Xmx$maxmem in=${params.prefix}_trimmed_R1_tmp.fq in2=${params.prefix}_trimmed_R2_tmp.fq out=${params.prefix}_trimmed_R1.fq out2=${params.prefix}_trimmed_R2.fq k=31 ref=$phix174ill,$artifacts qin=$params.qin threads=$threads ow &> tmp.log
+	#Removes synthetic contaminants
+	if [ \"$params.librarylayout\" = \"paired\" ]; then
+		bbduk.sh -Xmx$maxmem in=${params.prefix}_trimmed_R1_tmp.fq in2=${params.prefix}_trimmed_R2_tmp.fq out=${params.prefix}_trimmed_R1.fq out2=${params.prefix}_trimmed_R2.fq k=31 ref=$phix174ill,$artifacts qin=$params.qin threads=$threads ow &> tmp.log
+	else
+		bbduk.sh -Xmx$maxmem in=${params.prefix}_trimmed_tmp.fq out=${params.prefix}_trimmed.fq k=31 ref=$phix174ill,$artifacts qin=$params.qin threads=$threads ow &> tmp.log
+	fi
 
 	#Logs some figures about sequences passing deletion of contaminants
-	echo  \"BBduk's trimming stats (synthetic contaminants, paired reads): \" >> .log.3
+	echo  \"BBduk's trimming stats (synthetic contaminants): \" >> .log.3
 	sed -n '/Input:/,/Result:/p' tmp.log >> .log.3
 	echo \" \" >> .log.3
 
-	#Removes synthetic contaminants (singleton reads)
-	bbduk.sh -Xmx$maxmem in=${params.prefix}_trimmed_singletons_tmp.fq out=${params.prefix}_trimmed_singletons.fq k=31 ref=$phix174ill,$artifacts qin=$params.qin threads=$threads ow &> tmp.log
-
-	#Logs some figures about sequences passing deletion of contaminants
-	echo  \"BBduk's trimming stats (synthetic contaminants, singleton reads): \" >> .log.3
-	sed -n '/Input:/,/Result:/p' tmp.log >> .log.3
-	echo \" \" >> .log.3
+	#Removes synthetic contaminants and logs some figures (singleton read file, 
+	#that exists iif the library layout was 'paired')
+	if [ \"$params.librarylayout\" = \"paired\" ]; then
+		bbduk.sh -Xmx$maxmem in=${params.prefix}_trimmed_singletons_tmp.fq out=${params.prefix}_trimmed_singletons.fq k=31 ref=$phix174ill,$artifacts qin=$params.qin threads=$threads ow &> tmp.log
+							
+		#Logs some figures about sequences passing deletion of contaminants
+		echo  \"BBduk's trimming stats (synthetic contaminants, singleton reads): \" >> .log.3
+		sed -n '/Input:/,/Result:/p' tmp.log >> .log.3
+		echo \" \" >> .log.3
+	fi
 	
-	#Removing tmp files
-	rm ${params.prefix}_trimmed_R1_tmp.fq ${params.prefix}_trimmed_R2_tmp.fq ${params.prefix}_trimmed_singletons_tmp.fq
+	#Removes tmp files. This avoids adding them to the output channels
+	rm -rf ${params.prefix}_trimmed*_tmp.fq 
 
 	#Measures and log execution time
 	endtime=\$(date +%s.%N)
@@ -286,7 +353,7 @@ process trim {
 
 
 /**
-	STEP 4. Quality control after trimming (paired reads only).
+	STEP 4. Quality control after trimming.
 
 	An output similar to that generated by STEP 1 is produced
 */
@@ -297,30 +364,38 @@ process qualityAssessmentTrimmed {
 	
 	//Merges the files with their labels (that is 1 for R1 and 2 for R2)
 	input:
-   	set file(reads), val(label) from trimmedreads.flatMap().merge( Channel.from( ['1', '2'] ) ){ a, b -> [a, b] }
+   	set file(reads), val(label) from trimmedreads.flatMap().merge( Channel.from( ['_R1', '_R2'] ) ){ a, b -> [a, b] }
 
 	output:
 	file  ".log.4$label" into log4
-	file "${params.prefix}_trimmed_R${label}_fastqc.html"
-	file "${params.prefix}_trimmed_R${label}_fastqc_data.txt"
+	file "${params.prefix}_trimmed*fastqc.html"
+	file "${params.prefix}_trimmed*fastqc_data.txt"
 
 	when:
-	  params.mode == "QC" || params.mode == "complete"
+	params.mode == "QC" || params.mode == "complete"
 
    	script:
 	"""
 	#Measures execution time
 	sysdate=\$(date)
 	starttime=\$(date +%s.%N)
+	
+	#If the library layout is 'single', there is no label to be added to the file
+	if [ \"$params.librarylayout\" = \"paired\" ]; then
+		label=$label
+	else
+		label=\"\"
+	fi		
+		
 	echo \"Performing STEP 4 [Assessment of read quality of trimmed FASTQ file] at \$sysdate on $reads\" > .log.4$label
 	echo \" \" >> .log.4$label
 
 	#Does QC, extracts relevant information, and removes temporary files
-	bash fastQC.sh $reads ${params.prefix}_trimmed_R${label} $threads
+	bash fastQC.sh $reads ${params.prefix}_trimmed\${label} $threads
 
 	#Logging QC statistics (number of sequences, Pass/warning/fail, basic statistics, duplication level, kmers)
 	base=\$(basename $reads)
-	bash logQC.sh \$base ${params.prefix}_trimmed_R${label}_fastqc_data.txt .log.4$label
+	bash logQC.sh \$base ${params.prefix}_trimmed\${label}_fastqc_data.txt .log.4$label
 
 	#Measures and log execution time
 	endtime=\$(date +%s.%N)
@@ -335,9 +410,8 @@ process qualityAssessmentTrimmed {
 
 
 /**
-	STEP 5. Decontamination.
-	Removes contamination with external organisms, that in this specific case is
-	linmited to human contamination. Decontamination is carried on idependently
+	STEP 5. Decontamination. Removes external organisms' contamination, using a previously
+	created index. When paired-end are used, decontamination is carried on idependently
 	on paired reads and on singleton reads thanks to BBwrap, that calls BBmap once
 	on the paired reads and once on the singleton ones, merging the results on a
 	single output file.
@@ -348,15 +422,20 @@ process qualityAssessmentTrimmed {
 	Please note that if keepQCtmpfile is set to false, the file of the contaminating 
 	reads is discarded
 
-	TODO: use BBsplit for multiple organisms decontamination
+	TODO: use BBsplit for multiple organisms decontamination, or fix the ref to a 
+	FASTA file pangenome
 */
 
+//When single-end reads are used, the input tuple (singleton) will not match input set 
+//cardinality declared by 'trim' process (triplet), so I push two mock files in the channel,
+//and then I take only the first three files.
+mockdecontaminate = Channel.from("null", "null")
 process decontaminate {
 
 	publishDir  workingdir, mode: 'copy', pattern: "*_clean.fq"
 		
 	input:
-	set file(infile1), file(infile2), file(infile12) from todecontaminate
+	set file(infile1), file(infile2), file(infile12) from todecontaminate.concat(mockdecontaminate).flatMap().take(3).buffer(size : 3)
 	file(refForeingGenome) from Channel.from( file(params.refForeingGenome, type: 'dir') )
 	
 	output:
@@ -367,7 +446,7 @@ process decontaminate {
 	file "${params.prefix}_cont.fq" into topublishdecontaminate
 
 	when:
-	  params.mode == "QC" || params.mode == "complete"
+	params.mode == "QC" || params.mode == "complete"
 	
 	script:
 	"""
@@ -377,7 +456,11 @@ process decontaminate {
 	echo \"Performing STEP 5 [Decontamination] at \$sysdate\" > .log.5
 	echo \" \" >> .log.5
 
-	bbwrap.sh  -Xmx$maxmem mapper=bbmap append=t in1=$infile1,$infile12 in2=$infile2,null outu=${params.prefix}_clean.fq outm=${params.prefix}_cont.fq minid=$params.mind maxindel=$params.maxindel bwr=$params.bwr bw=12 minhits=2 qtrim=rl trimq=$params.phred path=$refForeingGenome qin=$params.qin threads=$threads untrim quickmatch fast ow &> tmp.log
+	if [ \"$params.librarylayout\" = \"paired\" ]; then
+		bbwrap.sh  -Xmx$maxmem mapper=bbmap append=t in1=$infile1,$infile12 in2=$infile2,null outu=${params.prefix}_clean.fq outm=${params.prefix}_cont.fq minid=$params.mind maxindel=$params.maxindel bwr=$params.bwr bw=12 minhits=2 qtrim=rl trimq=$params.phred path=$refForeingGenome qin=$params.qin threads=$threads untrim quickmatch fast ow &> tmp.log
+	else
+		bbwrap.sh  -Xmx$maxmem mapper=bbmap append=t in1=$infile1 outu=${params.prefix}_clean.fq outm=${params.prefix}_cont.fq minid=$params.mind maxindel=$params.maxindel bwr=$params.bwr bw=12 minhits=2 qtrim=rl trimq=$params.phred path=$refForeingGenome qin=$params.qin threads=$threads untrim quickmatch fast ow &> tmp.log
+	fi
 	
 	#Logs some figures about decontaminated/contaminated reads
 	echo  \"BBmap's human decontamination stats (paired reads): \" >> .log.5
@@ -385,9 +468,12 @@ process decontaminate {
 	echo \" \" >> .log.5
 	sed -n '/Read 2 data:/,/N Rate:/p' tmp.log >> .log.5
 	echo \" \" >> .log.5
-	echo  \"BBmap's human decontamination stats (singletons reads): \" >> .log.5
-	sed -n '/Read 1 data:/,/N Rate:/p' tmp.log | tail -17 >> .log.5
-	echo \" \" >> .log.5
+	
+	if [ \"$params.librarylayout\" = \"paired\" ]; then
+		echo  \"BBmap's human decontamination stats (singletons reads): \" >> .log.5
+		sed -n '/Read 1 data:/,/N Rate:/p' tmp.log | tail -17 >> .log.5
+		echo \" \" >> .log.5
+	fi
 
 	nClean=\$(wc -l ${params.prefix}_clean.fq | cut -d\" \" -f 1)
 	nClean=\$((\$nClean/4))
@@ -429,7 +515,7 @@ process qualityAssessmentClean {
 	file "${params.prefix}_clean_fastqc_data.txt" 
 
 	when:
-	  params.mode == "QC" || params.mode == "complete"
+	params.mode == "QC" || params.mode == "complete"
 
    	script:
 	"""		
@@ -478,6 +564,7 @@ if (params.mode == "characterisation") {
 	beta diversity.
 */
 
+
 process profileTaxa {
 
 	publishDir  workingdir, mode: 'copy', pattern: "*.{biom,tsv}"
@@ -494,7 +581,7 @@ process profileTaxa {
 	file "${params.prefix}_bt2out.txt" into topublishprofiletaxa
 
 	when:
-	  params.mode == "characterisation" || params.mode == "complete"
+	params.mode == "characterisation" || params.mode == "complete"
 
 	script:
 	"""
@@ -535,10 +622,10 @@ process profileTaxa {
 	STEP 8. Evaluates alpha-diversity, that is the mean species diversity the
 	given sample. Please note that the alpha diversity is the only per-sample
 	measure, so it is the only one evaluated by this module. If a newick tree
- 	is provided as input (see QIIME documentation for details), a more reliable
-	phylogenetic measure is evaluated.
+ 	is provided as input (see QIIME documentation for details), a further and
+	more reliable phylogenetic measure is evaluated (i.e., PD_whole_tree).
 
-	One text file, listing the alpha-diversity values evaluated by means of
+	One text file listing the alpha-diversity values, evaluated by means of
 	multiple measure, is outputted.
 */
 
@@ -554,7 +641,7 @@ process alphaDiversity {
 	file "${params.prefix}_alpha_diversity.tsv"
 	
 	when:
-	  params.mode == "characterisation" || params.mode == "complete"
+	params.mode == "characterisation" || params.mode == "complete"
 
 	script:
 	"""
@@ -636,7 +723,7 @@ process profileFunction {
 	set ("${params.prefix}_bowtie2_aligned.sam", "${params.prefix}_bowtie2_aligned.tsv", "${params.prefix}_diamond_aligned.tsv", "${params.prefix}_bowtie2_unaligned.fa", "${params.prefix}_diamond_unaligned.fa") into topublishhumann2	
 
 	when:
-	  params.mode == "characterisation" || params.mode == "complete"
+	params.mode == "characterisation" || params.mode == "complete"
 
 	script:
 	"""
@@ -686,25 +773,26 @@ process profileFunction {
 
 
 /**
-	CLEANUP 1. Collapses all the logs resulting from the QC in the main one, and removed them.
+	CLEANUP 1. Collapses all the logs resulting from the QC in the main one, 
+	and removes them.
 */
 
 process logQC {
 
 	input:
-	set file(log11), file(log12), file(log2), file(log3), file(log41), file(log42), file(log5), file(log6) from log1.flatMap().mix(log2, log3, log4.flatMap(), log5, log6).toSortedList( { a, b -> a.name <=> b.name } )
+	file(tolog)  from log1.flatMap().mix(log2, log3, log4.flatMap(), log5, log6).toSortedList( { a, b -> a.name <=> b.name } )
 
 	when:
 	params.mode == "QC" || params.mode == "complete"
 
 	script:
 	"""
-	cat $log11 $log12 $log2 $log3 $log41 $log42 $log5 $log6 >> $mylog
+	cat $tolog >> $mylog
 	"""
 }
 
 /**
-	CLEANUP 2. Saves the temporary files generate during QC (if the user requested so)
+	CLEANUP 2. Saves the temporary files generate during QC (if the users requested so)
 */
 
 	
@@ -729,26 +817,26 @@ process saveQCtmpfile {
 
 /**
 	CLEANUP 3. Collapses all the logs resulting from the community characterisation steps
-	in the main one, and removed them.
+	in the main one, and removes them.
 */
 
 process logCC {
 
 	input:
-	set file(log7), file(log8), file(log9) from log7.mix(log8, log9).flatMap().toSortedList( { a, b -> a.name <=> b.name } )
+	file(tolog) from log7.mix(log8, log9).flatMap().toSortedList( { a, b -> a.name <=> b.name } )
 	
 	when:
 	params.mode == "characterisation" || params.mode == "complete"
 		
 	script:
 	"""
-	cat $log7 $log8 $log9 >> $mylog
+	cat $tolog >> $mylog
 	"""
 }
 
 /**
 	CLEANUP 4. Saves the temporary files generate during the community characterisation 
-	(if the user requested so)
+	(if the users requested so)
 */
 
 	

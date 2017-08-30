@@ -34,7 +34,7 @@ YAMP is accompanied by a [Docker container](https://www.docker.com/), that saves
 
 These tools need to be in the system path with execute and read permission. Notably, MetaPhlAn2, QIIME, and HUMAnN2 are also available in [bioconda](https://anaconda.org/bioconda/). 
 
-The required tools are also included in a Docker container (please refer to [the Using Docker section](#using-docker)). If using the container, Docker ([https://www.docker.com](https://www.docker.com)) should be installed.
+The required tools (except Nextflow) are also included in a Docker container (please refer to [the Using Docker section](#using-docker)). If using the container, Docker ([https://www.docker.com](https://www.docker.com)) should be installed.
 
 
 ## Installation
@@ -71,12 +71,16 @@ YAMP requires a set of databases that are queried during its execution. Some of 
 ## Usage
 
 1. Modify the `nextflow.config` file, specifying the necessary parameters, such as the path to the aforementioned databases.
-2. From a terminal window run the `YAMP.nf` script using the following command:
+2. From a terminal window run the `YAMP.nf` script using the following command (when the library layout is 'paired'):
 	```
 	nextflow run YAMP.nf --reads1 R1 --reads2 R2 --prefix mysample --outdir outputdir --mode MODE
 	```
-	where `R1` and `R2` represent the path to the raw data (two compressed FASTQ file), `mysample` is a prefix that will be used to label all the resulting files, `outputdir` is the directory where the results will be stored, and `MODE` is any of the following: < QC, characterisation, complete >.
-
+	where `R1` and `R2` represent the path to the raw data (two compressed paired-end FASTQ files), `mysample` is a prefix that will be used to label all the resulting files, `outputdir` is the directory where the results will be stored, and `MODE` is any of the following: < QC, characterisation, complete >; or  the following command (when the library layout is 'single'):
+	```
+	nextflow run YAMP.nf --reads1 R --prefix mysample --outdir outputdir --mode MODE --librarylayout single
+	```
+	where `R` represents the path to the raw data (a compressed single-end FASTQ file), `librarylayout single` specifies that single-end reads are at hand, and the other parameters are as above.
+	
 Does it seem complicate? In the YAMP [wiki](https://github.com/alesssia/YAMP/wiki) there are some tutorials!
 
 
@@ -102,8 +106,17 @@ nextflow run YAMP.nf --reads1 R1 --reads2 R2 --prefix mysample --outdir outputdi
 
 where `R1` and `R2` represent the path to the raw data (two compressed FASTQ file), `mysample` is a prefix that will be used to label all the resulting files, `outputdir` is the directory where the results will be stored, and `MODE` is any of the following: < QC, characterisation, complete >.
 
+Please note that Nextflow is not included in the Docker container and should be installed as explained [here](https://www.nextflow.io/docs/latest/getstarted.html).
+
 
 ## Changelog
+
+### 0.9.3 / 2017-08-30
+ 
+ Enhancements:
+ * YAMP can now handle both paired-end and single-end reads
+ * The de-duplication step is now optional and can be skip (default: true)
+ 
 
 ### 0.9.2 / 2017-07-10 
 
@@ -118,5 +131,5 @@ YAMP is licensed under GNU GPL v3.
 
 ## Acknowledgements
 
-Alessia would like to thank Brian Bushnell for his helpful suggestions about how to successfully use the BBmap suite in a metagenomics context and for providing several useful resources, and Paolo Di Tommaso, for helping me in using Nextflow properly!
+Alessia would like to thank Brian Bushnell for his helpful suggestions about how to successfully use the BBmap suite in a metagenomics context and for providing several useful resources, and Paolo Di Tommaso, for helping her in using Nextflow properly!
 
