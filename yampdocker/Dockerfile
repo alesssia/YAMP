@@ -10,7 +10,7 @@ RUN apt-get install -q -y wget curl unzip gzip openjdk-7-jdk bc python perl samt
 
 #Updateds anaconda and uses it to install software used by YAMP
 RUN conda update conda -y
-RUN conda install -c bioconda  metaphlan2=2.6.0 qiime=1.9.1 humann2=0.9.9
+RUN conda install -c bioconda  metaphlan2=2.6.0 qiime=1.9.1 humann2=0.9.9 diamond=0.8.36
 
 #Install the last two software, namely FastQC and BBmap
 RUN wget -q -O fastqc.zip http://www.bioinformatics.babraham.ac.uk/projects/fastqc/fastqc_v0.11.5.zip && \
