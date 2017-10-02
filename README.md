@@ -34,7 +34,11 @@ YAMP is accompanied by a [Docker container](https://www.docker.com/), that saves
 
 These tools need to be in the system path with execute and read permission. Notably, MetaPhlAn2, QIIME, and HUMAnN2 are also available in [bioconda](https://anaconda.org/bioconda/). 
 
-The required tools (except Nextflow) are also included in a Docker container (please refer to [the Using Docker section](#using-docker)). If using the container, Docker ([https://www.docker.com](https://www.docker.com)) should be installed.
+The required tools (except Nextflow) are also included in a Docker container (please refer to [the Using Docker section](#using-docker)). 
+
+If using the container, both Docker ([https://www.docker.com](https://www.docker.com)) and Nextflow should be installed as explained [here](https://docs.docker.com/engine/installation/) and [here](https://www.nextflow.io/docs/latest/getstarted.html). 
+
+Please note that Nextflow requires BASH and [Java 7](http://www.oracle.com/technetwork/java/javase/downloads/index.html) or higher to be installed. Both should be already available in most of the POSIX compatible systems (Linux, Solaris, OS X, etc). However, as of October 2017, the latest release of Java (SE9) introduces some breaking changes in Nextflow, and should not be used (see [Nextflow issue #462](https://github.com/nextflow-io/nextflow/issues/462) for details). 
 
 
 ## Installation
@@ -67,6 +71,7 @@ YAMP requires a set of databases that are queried during its execution. Some of 
 - the ChocoPhlAn and UniRef databases, that can be downloaded directly by HUMAnN2, as explained [here](https://bitbucket.org/biobakery/humann2/wiki/Home#markdown-header-5-download-the-databases);
 - [optional] a phylogenetic tree used by QIIME to compute a set of alpha-diversity measures (see [here](http://qiime.org/scripts/alpha_diversity.html) for details).
 
+You can find an example of the folders layouts in this [wiki](https://github.com/alesssia/YAMP/wiki/Folders-layout-example) page.
 
 ## Usage
 
