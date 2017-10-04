@@ -116,6 +116,12 @@ Please note that Nextflow is not included in the Docker container and should be 
 
 ## Changelog
 
+### 0.9.3.1 / 2017-10-04
+
+Enhancements:
+* Users no longer need to specify the number of threads and the maximum amount of memory -- both values are now read from the `nextflow.config` file
+
+
 ### 0.9.3 / 2017-08-30
  
  Enhancements:

@@ -79,7 +79,7 @@ mylog = file(params.outdir + "/" + params.prefix + "/" + params.prefix + ".log")
 
 //Logs headers
 mylog <<  """---------------------------------------------
-YET ANOTHER METAGENOMIC PIPELINE (YAMP) v 0.9.3
+YET ANOTHER METAGENOMIC PIPELINE (YAMP) v 0.9.3.1
 ---------------------------------------------
 	
 Copyright (C) 2017 Dr Alessia Visconti   <alessia.visconti@kcl.ac.uk>
@@ -159,7 +159,7 @@ process qualityAssessmentRaw {
 	echo \" \" >> .log.1$label
 	 
 	#Does QC, extracts relevant information, and removes temporary files
-	bash fastQC.sh $reads ${params.prefix}${label} $threads $reads
+	bash fastQC.sh $reads ${params.prefix}${label} ${task.cpus} $reads
 	
 	#Logging QC statistics (number of sequences, Pass/warning/fail, basic statistics, duplication level, kmers)
 	base=\$(basename $reads)
@@ -214,13 +214,17 @@ process dedup {
 	starttime=\$(date +%s.%N)
 	echo \"Performing STEP 2 [De-duplication] at \$sysdate\" > .log.2
 	echo \" \" >> .log.2
-
+	
+	#Sets the maximum memory to the value requested in the config file
+	maxmem=\$(echo \"$task.memory\" | sed 's/ //g' | sed 's/B//g')
+	
 	#De-duplicates
 	if [ \"$params.librarylayout\" = \"paired\" ]; then
-		clumpify.sh -Xmx$maxmem in1=$in1 in2=$in2 out1=${params.prefix}_dedupe_R1.fq.gz out2=${params.prefix}_dedupe_R2.fq.gz qin=$params.qin dedupe subs=0 threads=$threads &> tmp.log
+		CMD=\"clumpify.sh -Xmx\"\$maxmem\" in1=$in1 in2=$in2 out1=${params.prefix}_dedupe_R1.fq.gz out2=${params.prefix}_dedupe_R2.fq.gz qin=$params.qin dedupe subs=0 threads=${task.cpus} &> tmp.log\"
 	else
-		clumpify.sh -Xmx$maxmem in=$in1 out=${params.prefix}_dedupe.fq.gz qin=$params.qin dedupe subs=0 threads=$threads &> tmp.log
+		CMD=\"clumpify.sh -Xmx\"\$maxmem\" in=$in1 out=${params.prefix}_dedupe.fq.gz qin=$params.qin dedupe subs=0 threads=${task.cpus} &> tmp.log\"
 	fi
+	exec \$CMD
 
 	#Logs some figures about sequences passing de-duplication
 	echo  \"BBduk's de-duplication stats: \" >> .log.2
@@ -296,12 +300,17 @@ process trim {
 	echo \"Performing STEP 3 [Trimming] at \$sysdate\" > .log.3
 	echo \" \" >> .log.3
 
+	#Sets the maximum memory to the value requested in the config file
+	maxmem=\$(echo ${task.memory} | sed 's/ //g' | sed 's/B//g')
+
 	#Trims adapters and low quality sequences
 	if [ \"$params.librarylayout\" = \"paired\" ]; then
-		bbduk.sh -Xmx$maxmem in=$reads1 in2=$reads2 out=${params.prefix}_trimmed_R1_tmp.fq out2=${params.prefix}_trimmed_R2_tmp.fq outs=${params.prefix}_trimmed_singletons_tmp.fq ktrim=r k=$params.kcontaminants mink=$params.mink hdist=$params.hdist qtrim=rl trimq=$params.phred  minlength=$params.minlength ref=$adapters qin=$params.qin threads=$threads tbo tpe ow &> tmp.log
+		CMD=\"bbduk.sh -Xmx\"\$maxmem\" in=$reads1 in2=$reads2 out=${params.prefix}_trimmed_R1_tmp.fq out2=${params.prefix}_trimmed_R2_tmp.fq outs=${params.prefix}_trimmed_singletons_tmp.fq ktrim=r k=$params.kcontaminants mink=$params.mink hdist=$params.hdist qtrim=rl trimq=$params.phred  minlength=$params.minlength ref=$adapters qin=$params.qin threads=${task.cpus} tbo tpe ow &> tmp.log\"
 	else
-		bbduk.sh -Xmx$maxmem in=$reads1 out=${params.prefix}_trimmed_tmp.fq ktrim=r k=$params.kcontaminants mink=$params.mink hdist=$params.hdist qtrim=rl trimq=$params.phred  minlength=$params.minlength ref=$adapters qin=$params.qin threads=$threads tbo tpe ow &> tmp.log
+		CMD=\"bbduk.sh -Xmx\"\$maxmem\" in=$reads1 out=${params.prefix}_trimmed_tmp.fq ktrim=r k=$params.kcontaminants mink=$params.mink hdist=$params.hdist qtrim=rl trimq=$params.phred  minlength=$params.minlength ref=$adapters qin=$params.qin threads=${task.cpus} tbo tpe ow &> tmp.log\"
 	fi
+				
+	exec \$CMD
 	
 	#Logs some figures about sequences passing trimming
 	echo  \"BBduk's trimming stats (trimming adapters and low quality sequences): \" >> .log.3
@@ -316,9 +325,9 @@ process trim {
 
 	#Removes synthetic contaminants
 	if [ \"$params.librarylayout\" = \"paired\" ]; then
-		bbduk.sh -Xmx$maxmem in=${params.prefix}_trimmed_R1_tmp.fq in2=${params.prefix}_trimmed_R2_tmp.fq out=${params.prefix}_trimmed_R1.fq out2=${params.prefix}_trimmed_R2.fq k=31 ref=$phix174ill,$artifacts qin=$params.qin threads=$threads ow &> tmp.log
+		bbduk.sh -Xmx\"\$maxmem\" in=${params.prefix}_trimmed_R1_tmp.fq in2=${params.prefix}_trimmed_R2_tmp.fq out=${params.prefix}_trimmed_R1.fq out2=${params.prefix}_trimmed_R2.fq k=31 ref=$phix174ill,$artifacts qin=$params.qin threads=${task.cpus} ow &> tmp.log
 	else
-		bbduk.sh -Xmx$maxmem in=${params.prefix}_trimmed_tmp.fq out=${params.prefix}_trimmed.fq k=31 ref=$phix174ill,$artifacts qin=$params.qin threads=$threads ow &> tmp.log
+		bbduk.sh -Xmx\"\$maxmem\" in=${params.prefix}_trimmed_tmp.fq out=${params.prefix}_trimmed.fq k=31 ref=$phix174ill,$artifacts qin=$params.qin threads=${task.cpus} ow &> tmp.log
 	fi
 
 	#Logs some figures about sequences passing deletion of contaminants
@@ -329,7 +338,7 @@ process trim {
 	#Removes synthetic contaminants and logs some figures (singleton read file, 
 	#that exists iif the library layout was 'paired')
 	if [ \"$params.librarylayout\" = \"paired\" ]; then
-		bbduk.sh -Xmx$maxmem in=${params.prefix}_trimmed_singletons_tmp.fq out=${params.prefix}_trimmed_singletons.fq k=31 ref=$phix174ill,$artifacts qin=$params.qin threads=$threads ow &> tmp.log
+		bbduk.sh -Xmx\"\$maxmem\" in=${params.prefix}_trimmed_singletons_tmp.fq out=${params.prefix}_trimmed_singletons.fq k=31 ref=$phix174ill,$artifacts qin=$params.qin threads=${task.cpus} ow &> tmp.log
 							
 		#Logs some figures about sequences passing deletion of contaminants
 		echo  \"BBduk's trimming stats (synthetic contaminants, singleton reads): \" >> .log.3
@@ -391,7 +400,7 @@ process qualityAssessmentTrimmed {
 	echo \" \" >> .log.4$label
 
 	#Does QC, extracts relevant information, and removes temporary files
-	bash fastQC.sh $reads ${params.prefix}_trimmed\${label} $threads
+	bash fastQC.sh $reads ${params.prefix}_trimmed\${label} ${task.cpus}
 
 	#Logging QC statistics (number of sequences, Pass/warning/fail, basic statistics, duplication level, kmers)
 	base=\$(basename $reads)
@@ -456,11 +465,16 @@ process decontaminate {
 	echo \"Performing STEP 5 [Decontamination] at \$sysdate\" > .log.5
 	echo \" \" >> .log.5
 
+	#Sets the maximum memory to the value requested in the config file
+	maxmem=\$(echo ${task.memory} | sed 's/ //g' | sed 's/B//g')
+	
 	if [ \"$params.librarylayout\" = \"paired\" ]; then
-		bbwrap.sh  -Xmx$maxmem mapper=bbmap append=t in1=$infile1,$infile12 in2=$infile2,null outu=${params.prefix}_clean.fq outm=${params.prefix}_cont.fq minid=$params.mind maxindel=$params.maxindel bwr=$params.bwr bw=12 minhits=2 qtrim=rl trimq=$params.phred path=$refForeingGenome qin=$params.qin threads=$threads untrim quickmatch fast ow &> tmp.log
+		CMD=\"bbwrap.sh  -Xmx\"\$maxmem\" mapper=bbmap append=t in1=$infile1,$infile12 in2=$infile2,null outu=${params.prefix}_clean.fq outm=${params.prefix}_cont.fq minid=$params.mind maxindel=$params.maxindel bwr=$params.bwr bw=12 minhits=2 qtrim=rl trimq=$params.phred path=$refForeingGenome qin=$params.qin threads=${task.cpus} untrim quickmatch fast ow &> tmp.log\"
 	else
-		bbwrap.sh  -Xmx$maxmem mapper=bbmap append=t in1=$infile1 outu=${params.prefix}_clean.fq outm=${params.prefix}_cont.fq minid=$params.mind maxindel=$params.maxindel bwr=$params.bwr bw=12 minhits=2 qtrim=rl trimq=$params.phred path=$refForeingGenome qin=$params.qin threads=$threads untrim quickmatch fast ow &> tmp.log
+		CMD=\"bbwrap.sh  -Xmx\"\$maxmem\" mapper=bbmap append=t in1=$infile1 outu=${params.prefix}_clean.fq outm=${params.prefix}_cont.fq minid=$params.mind maxindel=$params.maxindel bwr=$params.bwr bw=12 minhits=2 qtrim=rl trimq=$params.phred path=$refForeingGenome qin=$params.qin threads=${task.cpus} untrim quickmatch fast ow &> tmp.log\"
 	fi
+				
+	exec \$CMD
 	
 	#Logs some figures about decontaminated/contaminated reads
 	echo  \"BBmap's human decontamination stats (paired reads): \" >> .log.5
@@ -526,7 +540,7 @@ process qualityAssessmentClean {
 	echo \" \" >> .log.6
 
 	#Does QC, extracts relevant information, and removes temporary files
-	bash fastQC.sh $reads ${params.prefix}_clean $threads $reads
+	bash fastQC.sh $reads ${params.prefix}_clean ${task.cpus} $reads
 
 	#Logging QC statistics (number of sequences, Pass/warning/fail, basic statistics, duplication level, kmers)
 	base=\$(basename $reads)
@@ -592,7 +606,7 @@ process profileTaxa {
 	echo \" \" >> .log.7
 	
 	rm -rf ${params.prefix}_bt2out.txt
-	metaphlan2.py --input_type fastq --tmp_dir=. --biom ${params.prefix}.biom --bowtie2out=${params.prefix}_bt2out.txt --mpa_pkl $mpa_pkl  --bowtie2db $bowtie2db/$params.bowtie2dbfiles --bt2_ps $params.bt2options --nproc $threads $infile ${params.prefix}_metaphlan_bugs_list.tsv
+	metaphlan2.py --input_type fastq --tmp_dir=. --biom ${params.prefix}.biom --bowtie2out=${params.prefix}_bt2out.txt --mpa_pkl $mpa_pkl  --bowtie2db $bowtie2db/$params.bowtie2dbfiles --bt2_ps $params.bt2options --nproc ${task.cpus} $infile ${params.prefix}_metaphlan_bugs_list.tsv
 
 	#Sets the prefix in the biom file
 	sed -i 's/Metaphlan2_Analysis/${params.prefix}/g' ${params.prefix}.biom
@@ -734,7 +748,7 @@ process profileFunction {
  	echo \" \" >> .log.9
 
 	#Runs HUMAnN2 taking advantages of the MetaPhlAn2's results
-	humann2 --input $cleanreads --output . --output-basename ${params.prefix} --taxonomic-profile $metaphlanbuglist --nucleotide-database $chocophlan --protein-database $uniref --pathways metacyc --threads $threads --memory-use minimum > ${params.prefix}_HUMAnN2.log
+	humann2 --input $cleanreads --output . --output-basename ${params.prefix} --taxonomic-profile $metaphlanbuglist --nucleotide-database $chocophlan --protein-database $uniref --pathways metacyc --threads ${task.cpus} --memory-use minimum > ${params.prefix}_HUMAnN2.log
 
 	#If `|| true` is not add, nextflow stops... WTF 
 	grep \"Total species selected from prescreen:\" ${params.prefix}_HUMAnN2.log >> .log.9 || true
