@@ -6,7 +6,7 @@ Here we present Yet Another Metagenomic Pipeline (YAMP) that, starting from the 
 
 YAMP is constructed on [Nextflow](https://github.com/nextflow-io/nextflow), a framework based on the dataflow programming model, which allows writing workflows that are highly parallel, easily portable (including on distributed systems), and very flexible and customisable, characteristics which have been inherited by YAMP. New modules can be added easily and the existing ones can be customised -- even though we have already provided default parameters deriving from our own experience.
 
-YAMP is accompanied by a [Docker container](https://www.docker.com/), that saves the users from the hassle of installing the required software, increasing, at the same time, the reproducibility of the YAMP results (see [the Using Docker section](#using-docker)).
+YAMP is accompanied by a [Docker container](https://www.docker.com/), that saves the users from the hassle of installing the required software, increasing, at the same time, the reproducibility of the YAMP results (see [Using Docker or Singularity](#using-docker-or-singularity)). 
 
 
 ## Table of contents
@@ -15,7 +15,7 @@ YAMP is accompanied by a [Docker container](https://www.docker.com/), that saves
 - [Installation](#installation)
 - [Other requirements](#other-requirements)
 - [Usage](#usage)
-- [Using Docker](#using-docker)
+- [Using Docker or Singularity](#using-docker-or-singularity)
 - [Changelog](#changelog)
 - [License](#license)
 - [Acknowledgements](#acknowledgements)
@@ -34,9 +34,9 @@ YAMP is accompanied by a [Docker container](https://www.docker.com/), that saves
 
 These tools need to be in the system path with execute and read permission. Notably, MetaPhlAn2, QIIME, and HUMAnN2 are also available in [bioconda](https://anaconda.org/bioconda/). 
 
-The required tools (except Nextflow) are also included in a Docker container (please refer to [the Using Docker section](#using-docker)). 
+The required tools (except Nextflow) are also included in a Docker container (please refer to [Using Docker or Singularity](#using-docker-or-singularity)). 
 
-If using the container, both Docker ([https://www.docker.com](https://www.docker.com)) and Nextflow should be installed as explained [here](https://docs.docker.com/engine/installation/) and [here](https://www.nextflow.io/docs/latest/getstarted.html). 
+If using the container, both Docker ([https://www.docker.com](https://www.docker.com)) and/or Singularity ([http://singularity.lbl.gov/](http://singularity.lbl.gov/)) and Nextflow should be installed as explained [here](https://docs.docker.com/engine/installation/) and [here](https://www.nextflow.io/docs/latest/getstarted.html). 
 
 Please note that Nextflow requires BASH and [Java 7](http://www.oracle.com/technetwork/java/javase/downloads/index.html) or higher to be installed. Both should be already available in most of the POSIX compatible systems (Linux, Solaris, OS X, etc). However, as of October 2017, the latest release of Java (SE9) introduces some breaking changes in Nextflow, and should not be used (see [Nextflow issue #462](https://github.com/nextflow-io/nextflow/issues/462) for details). 
 
@@ -89,9 +89,9 @@ You can find an example of the folders layouts in this [wiki](https://github.com
 Does it seem complicate? In the YAMP [wiki](https://github.com/alesssia/YAMP/wiki) there are some tutorials!
 
 
-## Using Docker
+## Using Docker or Singularity
 
-To use the tools made available through the Docker container, one could either pull the pre-built image from [DockerHub](https://hub.docker.com/r/alesssia/yampdocker/), using the following command:
+To use the tools made available through the Docker container within both Docker, one could either pull the pre-built image from [DockerHub](https://hub.docker.com/r/alesssia/yampdocker/), using the following command:
 
 ```
 docker pull alesssia/yampdocker
@@ -110,6 +110,13 @@ nextflow run YAMP.nf --reads1 R1 --reads2 R2 --prefix mysample --outdir outputdi
 ```
 
 where `R1` and `R2` represent the path to the raw data (two compressed FASTQ file), `mysample` is a prefix that will be used to label all the resulting files, `outputdir` is the directory where the results will be stored, and `MODE` is any of the following: < QC, characterisation, complete >.
+
+
+YAMP can use a Docker image with Singularity (without pulling the image) by adding the `-with-singularity` option followed by the image path (`--with-singularity docker://alessia/yampdocker`), that is, the following command:
+
+```
+nextflow run YAMP.nf --reads1 R1 --reads2 R2 --prefix mysample --outdir outputdir --mode MODE -with-singularity docker://alessia/yampdocker
+```
 
 Please note that Nextflow is not included in the Docker container and should be installed as explained [here](https://www.nextflow.io/docs/latest/getstarted.html).
 
