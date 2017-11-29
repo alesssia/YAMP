@@ -73,6 +73,22 @@ YAMP requires a set of databases that are queried during its execution. Some of 
 
 You can find an example of the folders layouts in this [wiki](https://github.com/alesssia/YAMP/wiki/Folders-layout-example) page.
 
+You can also download all these files (please note that it might be necessary to edit this file list according to the analysis at hand) either from Zenodo ([https://zenodo.org/record/1068229#.Wh7a3rTQqL4](https://zenodo.org/record/1068229#.Wh7a3rTQqL4)), or using the following command:
+
+```
+wget https://zenodo.org/record/1068229/files/YAMP_resources_20171128.tar.gz
+```
+
+If you use this data file, please note that, before running YAMP, the FASTA file describing the human (contaminating) genome should be indexed with the following command:
+
+```
+bbmap.sh -Xmx24G ref=hg19_main_mask_ribo_animal_allplant_allfungus.fa.gz
+```
+
+**Please also note that the size of this compressed data file is 16.7 GB.** 
+
+
+
 ## Usage
 
 1. Modify the `nextflow.config` file, specifying the necessary parameters, such as the path to the aforementioned databases.
