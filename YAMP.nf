@@ -22,6 +22,58 @@
 	- https://github.com/alesssia/YAMP/issues
 */
 
+version='0.9.4'
+timestamp='20171207'
+
+/**
+	Prints version when asked for
+*/
+if (params.version) {
+	System.out.println("")
+	System.out.println("YET ANOTHER METAGENOMIC PIPELINE (YAMP) - Version: $version ($timestamp)")
+	exit 1
+}
+
+/**
+	Prints help when asked for
+*/
+
+if (params.help) {
+	System.out.println("")
+	System.out.println("YET ANOTHER METAGENOMIC PIPELINE (YAMP) - Version: $version ($timestamp)")
+	System.out.println("This pipeline is distributed in the hope that it will be useful")
+	System.out.println("but WITHOUT ANY WARRANTY. See the GNU GPL v3.0 for more details.")
+	System.out.println("")
+	System.out.println("Please report comments and bugs to alessia.visconti@kcl.ac.uk")
+	System.out.println("or at https://github.com/alesssia/YAMP/issues.")
+	System.out.println("Check https://github.com/alesssia/YAMP for updates and refer to")
+	System.out.println("https://github.com/alesssia/YAMP/wiki for more details.")
+	System.out.println("")
+	System.out.println("Usage: ")
+	System.out.println("   nextflow run YAMP.nf --reads1 R1 --reads2 R2 --prefix mysample --outdir path --mode MODE  ")
+	System.out.println("                [options] [-with-docker|-with-singularity]")
+	System.out.println("")
+	System.out.println("Mandatory arguments:")
+	System.out.println("    --reads1   R1      Forward (if paired-end) OR all reads (if single-end) file path")
+	System.out.println("    [--reads2] R2      Reverse reads file path (only if paired-end library layout)")
+	System.out.println("    --prefix   prefix  Prefix used to name the result files")
+	System.out.println("    --outdir   path    Output directory (will be outdir/prefix/)")
+	System.out.println("    --mode     <QC|characterisation|complete>")
+	System.out.println("Options:")
+	System.out.println("    --librarylayout <single|paired>")
+	System.out.println("    --dedup         <true|false>   whether to perform de-duplication")
+	System.out.println("    --keepQCtmpfile <true|false>   whether to save QC temporary files")
+	System.out.println("    --keepCCtmpfile <true|false>   whether to save community characterisation temporary files")
+	System.out.println("")
+	System.out.println("Container:")
+	System.out.println("    Docker image to use with -with-docker|-with-singularity options is")
+	System.out.println("    'docker://alessia/yampdocker'")
+	System.out.println("")
+	System.out.println("YAMP supports FASTQ and compressed FASTQ files.")
+	System.out.println("")
+    exit 1
+}
+
 	
 /**
 	STEP 0. 
@@ -79,25 +131,39 @@ mylog = file(params.outdir + "/" + params.prefix + "/" + params.prefix + ".log")
 
 //Logs headers
 mylog <<  """---------------------------------------------
-YET ANOTHER METAGENOMIC PIPELINE (YAMP) v 0.9.3.1
+YET ANOTHER METAGENOMIC PIPELINE (YAMP) - Version: $version ($timestamp)
 ---------------------------------------------
 	
-Copyright (C) 2017 Dr Alessia Visconti   <alessia.visconti@kcl.ac.uk>
+Copyright (C) 2017 Dr Alessia Visconti <alessia.visconti@kcl.ac.uk>
 
 This pipeline is distributed in the hope that it will be useful
 but WITHOUT ANY WARRANTY. See the GNU GPL v3.0 for more details.
 
-Please report comments and bugs to: alessia.visconti@kcl.ac.uk						  
-Check http://github.com/alesssia/YAMP for updates.
+Please report comments and bugs to alessia.visconti@kcl.ac.uk
+or at https://github.com/alesssia/YAMP/issues.						  
+Check https://github.com/alesssia/YAMP for updates and refer to
+https://github.com/alesssia/YAMP/wiki for more details.
 
 ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++   						   	   
 """
 	   
-//Logs starting time and other information about the run
+//Fetches information on OS and java versions, including user name
+osname = System.getProperty("os.name") //Operating system name
+osarch = System.getProperty("os.arch") //Operating system architecture
+osversion = System.getProperty("os.version") //Operating system version
+osuser = System.getProperty("user.name") //User's account name
+
+javaversion = System.getProperty("java.version") //Java Runtime Environment version
+javaVMname = System.getProperty("java.vm.name") //Java Virtual Machine implementation name
+javaVMVersion = System.getProperty("java.vm.version") //Java Virtual Machine implementation version
+
+//Gets starting time		
 sysdate = new java.util.Date() 
+		
+//Logs starting time and other information about the run		
 mylog << """ 
-Analysis starting at $sysdate 
-Analysed samples are: $params.reads1 and $params.reads2
+Analysis starting at $sysdate by user: $osuser
+Analysed sample(s): $params.reads1 and $params.reads2
 Results will be saved at $workingdir
 New files will be saved using the '$params.prefix' prefix
 
@@ -106,15 +172,53 @@ Library layout? $params.librarylayout
 Saving QC temporary files? $params.keepQCtmpfile
 Saving community characterisation temporary files? $params.keepCCtmpfile
 Performing de-duplication? $params.dedup	
-	     
+
+------------
+	
+Analysis introspection:
+
+Operating System:
+	name:         $osname
+	architecture: $osarch
+	version:      $osversion
+
+Java
+	version: $javaversion
+	Java Virtual Machine: $javaVMname ; version: $javaVMVersion
+
+nextflow:
+	version:   $nextflow.version	
+	build:     $nextflow.build	
+	timestamp: $nextflow.timestamp	
+			
+Container:
+	Docker image: $workflow.container		
+
+Repository:
+	url:            $workflow.repository
+	Git commit ID:  $workflow.commitId
+	Git branch/tag: $workflow.revision
+
+Analysis environment:
+
+	projectDir: $workflow.projectDir	
+	launchDir:  $workflow.launchDir
+	workingDir: $workflow.workDir	
+		
+	command line: $workflow.commandLine	
+	
+	Run name:   $workflow.runName	
+	Session ID: $workflow.sessionId	
+	profile:    $workflow.profile
+			
 ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++   
 	   
 """ 
-	   		
 
 /**
-	STEP 1. Assessment of read quality of FASTQ file, done by FastQC. Multiple 
-	plots are generated to show average phred quality scores and other metrics.
+	Quality Assessment - STEP 1. Assessment of read quality of FASTQ file, 
+	done by means of FastQC. Multiple  plots are generated to show average 
+	phred quality scores and other metrics.
 
 	This step will generate (for each end, if the layout is paired) an HTML page,
 	showing a summary of the results and a set of plots offering a visual guidance
@@ -125,64 +229,40 @@ Performing de-duplication? $params.dedup
 */
 
 
-//Defines channel with <readfile, label> as input for fastQC script
-//When layout is single, the params.reads2 is not used
+//Defines channel with <step, readfile, label, stem> as input for fastQC script:
+//- step defines which step of the analysis is performed (QA of raw reads is the 1st,
+//  QA of the trimmed reads is the 4th, QA of the decontaminated reads is the 6th), and
+//  it will be used to sort the step's logs into the final YAMP log file.
+//- readfile is the reads FASTQ file, 
+//- label indicated whethere it is forward (R1) or reverse (R2) strand -- it is empty 
+//  for single-end reads.
+//- stem indicates which reads are QA'd (raw/trimmed/decontaminated reads), and it is
+//  used to name the report files.
+//These parameters are used also for the trimmed and decontaminated reads channel
+
+//When layout is single, the params reads2 is not used.
+//This channel will be processed by the process Quality Assessment, that is reported
+//at the end of the QC section of this script (that runs all the QC assessed tasks)
 if (params.librarylayout == "paired") {
-	rawreads = Channel.from( [file(params.reads1), '_R1'], [file(params.reads2), '_R2'] )
+	rawreads = Channel.from( ['1', file(params.reads1), '_R1', '_rawreads'], ['1', file(params.reads2), '_R2', '_rawreads'] )
 }
 else {
-	rawreads = Channel.value( [file(params.reads1), ''] )
-}
-
-//This step is not a prerequisite for any other, so it does not redirect any of its output to channels
-process qualityAssessmentRaw {
-	
-	publishDir  workingdir, mode: 'copy', pattern: "*.{html,txt}"
-	  	
-	input:
-   	set file(reads), val(label) from rawreads
-
-	output:
-	file ".log.1$label" into log1
-	file "${params.prefix}*_fastqc.html" 
-	file "${params.prefix}*_fastqc_data.txt" 
-
-	when:
-	(params.mode == "QC" || params.mode == "complete") 
-
-   	script:
-	"""	
-	#Measures execution time
-	sysdate=\$(date)
-	starttime=\$(date +%s.%N)
-	echo \"Performing STEP 1 [Assessment of read quality of FASTQ file] at \$sysdate on $reads\" > .log.1$label
-	echo \" \" >> .log.1$label
-	 
-	#Does QC, extracts relevant information, and removes temporary files
-	bash fastQC.sh $reads ${params.prefix}${label} ${task.cpus} $reads
-	
-	#Logging QC statistics (number of sequences, Pass/warning/fail, basic statistics, duplication level, kmers)
-	base=\$(basename $reads)
-	bash logQC.sh \$base ${params.prefix}${label}_fastqc_data.txt .log.1$label
-				
-	#Measures and log execution time			
-	endtime=\$(date +%s.%N)
-	exectime=\$(echo \"\$endtime - \$starttime\" | bc)
-	sysdate=\$(date)
-	echo \"STEP 1 on $reads terminated at \$sysdate (\$exectime seconds)\" >> .log.1$label
-	echo \" \" >> .log.1$label	
-	echo \"++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++\" >> .log.1$label
-	echo \" \" >> .log.1$label	
-	"""	
+	rawreads = Channel.value( ['1', file(params.reads1), '', '_rawreads'] )
 }
 
 
+// ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++   
+//	QUALITY CONTROL (QC)
+// ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++   
 
 /**
-	STEP 2. De-duplication. Only exact duplicates are removed.
+	Quality Control - STEP 1. De-duplication. Only exact duplicates are removed.
 
 	If the layout is "paired", two FASTQ files are outputted, one for each paired-end.
 	If "single", a single FASTQ file will be generated.
+	This step is OPTIONAL. De-duplication should be carried on iff you are
+    using PCR amplification (in this case identical reads are technical artefacts)
+	but not otherwise (identical reads will identify natural duplicates).
 */
 
 // Defines channel with <readfile1, readfile2> as input for de-duplicates
@@ -212,22 +292,30 @@ process dedup {
 	#Measures execution time
 	sysdate=\$(date)
 	starttime=\$(date +%s.%N)
-	echo \"Performing STEP 2 [De-duplication] at \$sysdate\" > .log.2
+	echo \"Performing Quality Control. STEP 1 [De-duplication] at \$sysdate\" > .log.2
 	echo \" \" >> .log.2
 	
 	#Sets the maximum memory to the value requested in the config file
 	maxmem=\$(echo \"$task.memory\" | sed 's/ //g' | sed 's/B//g')
 	
-	#De-duplicates
+	#Defines command for de-duplication
 	if [ \"$params.librarylayout\" = \"paired\" ]; then
-		CMD=\"clumpify.sh -Xmx\"\$maxmem\" in1=$in1 in2=$in2 out1=${params.prefix}_dedupe_R1.fq.gz out2=${params.prefix}_dedupe_R2.fq.gz qin=$params.qin dedupe subs=0 threads=${task.cpus} &> tmp.log\"
+		CMD=\"clumpify.sh -Xmx\"\$maxmem\" in1=$in1 in2=$in2 out1=${params.prefix}_dedupe_R1.fq.gz out2=${params.prefix}_dedupe_R2.fq.gz qin=$params.qin dedupe subs=0 threads=${task.cpus}\"
 	else
-		CMD=\"clumpify.sh -Xmx\"\$maxmem\" in=$in1 out=${params.prefix}_dedupe.fq.gz qin=$params.qin dedupe subs=0 threads=${task.cpus} &> tmp.log\"
+		CMD=\"clumpify.sh -Xmx\"\$maxmem\" in=$in1 out=${params.prefix}_dedupe.fq.gz qin=$params.qin dedupe subs=0 threads=${task.cpus}\"
 	fi
-	exec \$CMD
+					
+	#Logs version of the software and executed command (BBmap prints on stderr)
+	version=\$(clumpify.sh --version 2>&1 >/dev/null | grep \"BBMap version\") 
+	echo \"Using clumpify.sh in \$version \" >> .log.2
+	echo \"Executing command: \$CMD \" >> .log.2
+	echo \" \" >> .log.2
+	
+	#De-duplicates
+	exec \$CMD 2>&1 | tee tmp.log
 
 	#Logs some figures about sequences passing de-duplication
-	echo  \"BBduk's de-duplication stats: \" >> .log.2
+	echo  \"Clumpify's de-duplication stats: \" >> .log.2
 	echo \" \" >> .log.2
 	sed -n '/Reads In:/,/Duplicates Found:/p' tmp.log >> .log.2
 	echo \" \" >> .log.2
@@ -242,7 +330,7 @@ process dedup {
 	endtime=\$(date +%s.%N)
 	exectime=\$(echo \"\$endtime - \$starttime\" | bc)
 	sysdate=\$(date)
-	echo \"STEP 2 terminated at \$sysdate (\$exectime seconds)\" >> .log.2
+	echo \"STEP 1 (Quality control) terminated at \$sysdate (\$exectime seconds)\" >> .log.2
 	echo \" \" >> .log.2
 	echo \"++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++\" >> .log.2
 	echo \" \" >> .log.2
@@ -250,7 +338,7 @@ process dedup {
 }
 
 /**
-	STEP 3. Trimming of low quality bases and of adapter sequences. Short reads
+	Quality control - STEP 2. Trimming of low quality bases and of adapter sequences. Short reads
 	are discarded. A decontamination of synthetic sequences is also pefoermed.
 	If dealing with paired-end reads, when either forward or reverse of a paired-read
 	are discarded, the surviving read is saved on a file of singleton reads.
@@ -297,23 +385,33 @@ process trim {
 	#Measures execution time
 	sysdate=\$(date)
 	starttime=\$(date +%s.%N)
-	echo \"Performing STEP 3 [Trimming] at \$sysdate\" > .log.3
+	echo \"Performing Quality Control. STEP 2 [Trimming] at \$sysdate\" > .log.3
 	echo \" \" >> .log.3
 
 	#Sets the maximum memory to the value requested in the config file
 	maxmem=\$(echo ${task.memory} | sed 's/ //g' | sed 's/B//g')
 
-	#Trims adapters and low quality sequences
+	#Defines command for trimming of adapters and low quality bases
 	if [ \"$params.librarylayout\" = \"paired\" ]; then
-		CMD=\"bbduk.sh -Xmx\"\$maxmem\" in=$reads1 in2=$reads2 out=${params.prefix}_trimmed_R1_tmp.fq out2=${params.prefix}_trimmed_R2_tmp.fq outs=${params.prefix}_trimmed_singletons_tmp.fq ktrim=r k=$params.kcontaminants mink=$params.mink hdist=$params.hdist qtrim=rl trimq=$params.phred  minlength=$params.minlength ref=$adapters qin=$params.qin threads=${task.cpus} tbo tpe ow &> tmp.log\"
+		CMD=\"bbduk.sh -Xmx\"\$maxmem\" in=$reads1 in2=$reads2 out=${params.prefix}_trimmed_R1_tmp.fq out2=${params.prefix}_trimmed_R2_tmp.fq outs=${params.prefix}_trimmed_singletons_tmp.fq ktrim=r k=$params.kcontaminants mink=$params.mink hdist=$params.hdist qtrim=rl trimq=$params.phred  minlength=$params.minlength ref=$adapters qin=$params.qin threads=${task.cpus} tbo tpe ow\"
 	else
-		CMD=\"bbduk.sh -Xmx\"\$maxmem\" in=$reads1 out=${params.prefix}_trimmed_tmp.fq ktrim=r k=$params.kcontaminants mink=$params.mink hdist=$params.hdist qtrim=rl trimq=$params.phred  minlength=$params.minlength ref=$adapters qin=$params.qin threads=${task.cpus} tbo tpe ow &> tmp.log\"
+		CMD=\"bbduk.sh -Xmx\"\$maxmem\" in=$reads1 out=${params.prefix}_trimmed_tmp.fq ktrim=r k=$params.kcontaminants mink=$params.mink hdist=$params.hdist qtrim=rl trimq=$params.phred  minlength=$params.minlength ref=$adapters qin=$params.qin threads=${task.cpus} tbo tpe ow\"
 	fi
-				
-	exec \$CMD
+	
+	#Logs version of the software and executed command (BBMap prints on stderr)
+	version=\$(bbduk.sh --version 2>&1 >/dev/null | grep \"BBMap version\") 
+	echo \"Using bbduk.sh in \$version \" >> .log.3
+	echo \"Using adapters in $params.adapters \" >> .log.3
+	echo \"Using synthetic contaminants in $params.phix174ill and in $params.artifacts \" >> .log.3
+	echo \" \" >> .log.3
+	echo \"Executing command: \$CMD \" >> .log.3
+	echo \" \" >> .log.3
+	
+	#Trims adapters and low quality bases	
+	exec \$CMD 2>&1 | tee tmp.log
 	
 	#Logs some figures about sequences passing trimming
-	echo  \"BBduk's trimming stats (trimming adapters and low quality sequences): \" >> .log.3
+	echo  \"BBduk's trimming stats (trimming adapters and low quality reads): \" >> .log.3
 	sed -n '/Input:/,/Result:/p' tmp.log >> .log.3
 	echo \" \" >> .log.3			
 	if [ \"$params.librarylayout\" = \"paired\" ]; then
@@ -323,12 +421,19 @@ process trim {
 		echo \" \" >> .log.3
 	fi
 
-	#Removes synthetic contaminants
+	#Defines command for removing synthetic contaminants
 	if [ \"$params.librarylayout\" = \"paired\" ]; then
-		bbduk.sh -Xmx\"\$maxmem\" in=${params.prefix}_trimmed_R1_tmp.fq in2=${params.prefix}_trimmed_R2_tmp.fq out=${params.prefix}_trimmed_R1.fq out2=${params.prefix}_trimmed_R2.fq k=31 ref=$phix174ill,$artifacts qin=$params.qin threads=${task.cpus} ow &> tmp.log
+		CMD=\"bbduk.sh -Xmx\"\$maxmem\" in=${params.prefix}_trimmed_R1_tmp.fq in2=${params.prefix}_trimmed_R2_tmp.fq out=${params.prefix}_trimmed_R1.fq out2=${params.prefix}_trimmed_R2.fq k=31 ref=$phix174ill,$artifacts qin=$params.qin threads=${task.cpus} ow\"
 	else
-		bbduk.sh -Xmx\"\$maxmem\" in=${params.prefix}_trimmed_tmp.fq out=${params.prefix}_trimmed.fq k=31 ref=$phix174ill,$artifacts qin=$params.qin threads=${task.cpus} ow &> tmp.log
+		CMD=\"bbduk.sh -Xmx\"\$maxmem\" in=${params.prefix}_trimmed_tmp.fq out=${params.prefix}_trimmed.fq k=31 ref=$phix174ill,$artifacts qin=$params.qin threads=${task.cpus} ow\"
 	fi
+
+	#Logs executed command
+	echo \"Executing command: \$CMD \" >> .log.3
+	echo \" \" >> .log.3
+	
+	#Removes synthetic contaminants
+	exec \$CMD 2>&1 | tee tmp.log
 
 	#Logs some figures about sequences passing deletion of contaminants
 	echo  \"BBduk's trimming stats (synthetic contaminants): \" >> .log.3
@@ -338,7 +443,13 @@ process trim {
 	#Removes synthetic contaminants and logs some figures (singleton read file, 
 	#that exists iif the library layout was 'paired')
 	if [ \"$params.librarylayout\" = \"paired\" ]; then
-		bbduk.sh -Xmx\"\$maxmem\" in=${params.prefix}_trimmed_singletons_tmp.fq out=${params.prefix}_trimmed_singletons.fq k=31 ref=$phix174ill,$artifacts qin=$params.qin threads=${task.cpus} ow &> tmp.log
+		CMD=\"bbduk.sh -Xmx\"\$maxmem\" in=${params.prefix}_trimmed_singletons_tmp.fq out=${params.prefix}_trimmed_singletons.fq k=31 ref=$phix174ill,$artifacts qin=$params.qin threads=${task.cpus} ow\"
+		
+		echo \"Executing command: \$CMD \" >> .log.3
+		echo \" \" >> .log.3
+	
+		#Removes synthetic contaminants
+		exec \$CMD 2>&1 | tee tmp.log		
 							
 		#Logs some figures about sequences passing deletion of contaminants
 		echo  \"BBduk's trimming stats (synthetic contaminants, singleton reads): \" >> .log.3
@@ -353,7 +464,7 @@ process trim {
 	endtime=\$(date +%s.%N)
 	exectime=\$(echo \"\$endtime - \$starttime\" | bc)
 	sysdate=\$(date)
-	echo \"STEP 3 terminated at \$sysdate (\$exectime seconds)\" >> .log.3
+	echo \"STEP 2 (Quality Control) terminated at \$sysdate (\$exectime seconds)\" >> .log.3
 	echo \" \" >> .log.3
 	echo \"++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++\" >> .log.3
 	echo \"\" >> .log.3
@@ -362,68 +473,21 @@ process trim {
 
 
 /**
-	STEP 4. Quality control after trimming.
+	Quality assessed - STEP 2. Quality control after trimming.
 
-	An output similar to that generated by STEP 1 is produced
+	An output similar to that generated by STEP 1 is produced.
 */
 
-process qualityAssessmentTrimmed {
-
-	publishDir  workingdir, mode: 'copy', pattern: "*.{html,txt}"
-	
-	//Merges the files with their labels (that is 1 for R1 and 2 for R2)
-	input:
-   	set file(reads), val(label) from trimmedreads.flatMap().merge( Channel.from( ['_R1', '_R2'] ) ){ a, b -> [a, b] }
-
-	output:
-	file  ".log.4$label" into log4
-	file "${params.prefix}_trimmed*fastqc.html"
-	file "${params.prefix}_trimmed*fastqc_data.txt"
-
-	when:
-	params.mode == "QC" || params.mode == "complete"
-
-   	script:
-	"""
-	#Measures execution time
-	sysdate=\$(date)
-	starttime=\$(date +%s.%N)
-	
-	#If the library layout is 'single', there is no label to be added to the file
-	if [ \"$params.librarylayout\" = \"paired\" ]; then
-		label=$label
-	else
-		label=\"\"
-	fi		
-		
-	echo \"Performing STEP 4 [Assessment of read quality of trimmed FASTQ file] at \$sysdate on $reads\" > .log.4$label
-	echo \" \" >> .log.4$label
-
-	#Does QC, extracts relevant information, and removes temporary files
-	bash fastQC.sh $reads ${params.prefix}_trimmed\${label} ${task.cpus}
-
-	#Logging QC statistics (number of sequences, Pass/warning/fail, basic statistics, duplication level, kmers)
-	base=\$(basename $reads)
-	bash logQC.sh \$base ${params.prefix}_trimmed\${label}_fastqc_data.txt .log.4$label
-
-	#Measures and log execution time
-	endtime=\$(date +%s.%N)
-	exectime=\$(echo \"\$endtime - \$starttime\" | bc)
-	sysdate=\$(date)
-	echo \"STEP 4 on $reads terminated at \$sysdate (\$exectime seconds)\" >> .log.4$label
-	echo \" \" >> .log.4$label
-	echo \"++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++\" >> .log.4$label
-	echo \" \" >> .log.4$label
-	"""
-}
-
+//This comment is a place holder. The execution of this step is delegated to the process
+//Quality Assessment, that is reported at the end of the QC section of this script and
+//that runs all the QC assessed tasks.
 
 /**
-	STEP 5. Decontamination. Removes external organisms' contamination, using a previously
-	created index. When paired-end are used, decontamination is carried on idependently
-	on paired reads and on singleton reads thanks to BBwrap, that calls BBmap once
-	on the paired reads and once on the singleton ones, merging the results on a
-	single output file.
+	Quality control - STEP 3. Decontamination. Removes external organisms' contamination, 
+	using a previously created index. When paired-end are used, decontamination is 
+	carried on idependently on paired reads and on singleton reads thanks to BBwrap, 
+	that calls BBmap once on the paired reads and once on the singleton ones, merging
+	 the results on a single output file.
 
 	Two files are outputted: the FASTQ of the decontaminated reads (including both
 	paired-reads and singletons) and that of the contaminating reads (that can be
@@ -462,22 +526,32 @@ process decontaminate {
 	#Measures execution time
 	sysdate=\$(date)
 	starttime=\$(date +%s.%N)
-	echo \"Performing STEP 5 [Decontamination] at \$sysdate\" > .log.5
+	echo \"Performing Quality Control. STEP 3 [Decontamination] at \$sysdate\" > .log.5
 	echo \" \" >> .log.5
 
 	#Sets the maximum memory to the value requested in the config file
 	maxmem=\$(echo ${task.memory} | sed 's/ //g' | sed 's/B//g')
 	
+	#Defines command for decontamination
 	if [ \"$params.librarylayout\" = \"paired\" ]; then
-		CMD=\"bbwrap.sh  -Xmx\"\$maxmem\" mapper=bbmap append=t in1=$infile1,$infile12 in2=$infile2,null outu=${params.prefix}_clean.fq outm=${params.prefix}_cont.fq minid=$params.mind maxindel=$params.maxindel bwr=$params.bwr bw=12 minhits=2 qtrim=rl trimq=$params.phred path=$refForeingGenome qin=$params.qin threads=${task.cpus} untrim quickmatch fast ow &> tmp.log\"
+		CMD=\"bbwrap.sh  -Xmx\"\$maxmem\" mapper=bbmap append=t in1=$infile1,$infile12 in2=$infile2,null outu=${params.prefix}_clean.fq outm=${params.prefix}_cont.fq minid=$params.mind maxindel=$params.maxindel bwr=$params.bwr bw=12 minhits=2 qtrim=rl trimq=$params.phred path=$refForeingGenome qin=$params.qin threads=${task.cpus} untrim quickmatch fast ow\"
 	else
-		CMD=\"bbwrap.sh  -Xmx\"\$maxmem\" mapper=bbmap append=t in1=$infile1 outu=${params.prefix}_clean.fq outm=${params.prefix}_cont.fq minid=$params.mind maxindel=$params.maxindel bwr=$params.bwr bw=12 minhits=2 qtrim=rl trimq=$params.phred path=$refForeingGenome qin=$params.qin threads=${task.cpus} untrim quickmatch fast ow &> tmp.log\"
+		CMD=\"bbwrap.sh  -Xmx\"\$maxmem\" mapper=bbmap append=t in1=$infile1 outu=${params.prefix}_clean.fq outm=${params.prefix}_cont.fq minid=$params.mind maxindel=$params.maxindel bwr=$params.bwr bw=12 minhits=2 qtrim=rl trimq=$params.phred path=$refForeingGenome qin=$params.qin threads=${task.cpus} untrim quickmatch fast ow\"
 	fi
-				
-	exec \$CMD
+	
+	#Logs version of the software and executed command (BBmap prints on stderr)
+	version=\$(bbwrap.sh --version 2>&1 >/dev/null | grep \"BBMap version\") 
+	echo \"Using bbwrap.sh in \$version \" >> .log.5
+	echo \"Using contaminant (pan)genome indexed in $params.refForeingGenome \" >> .log.5
+	echo \" \" >> .log.5
+	echo \"Executing command: \$CMD \" >> .log.5
+	echo \" \" >> .log.5
+	
+	#Decontaminates
+	exec \$CMD 2>&1 | tee tmp.log
 	
 	#Logs some figures about decontaminated/contaminated reads
-	echo  \"BBmap's human decontamination stats (paired reads): \" >> .log.5
+	echo  \"BBwrap's human decontamination stats (paired reads): \" >> .log.5
 	sed -n '/Read 1 data:/,/N Rate:/p' tmp.log | head -17 >> .log.5
 	echo \" \" >> .log.5
 	sed -n '/Read 2 data:/,/N Rate:/p' tmp.log >> .log.5
@@ -500,7 +574,7 @@ process decontaminate {
 	endtime=\$(date +%s.%N)
 	exectime=\$(echo \"\$endtime - \$starttime\" | bc)
 	sysdate=\$(date)
-	echo \"STEP 5 terminated at \$sysdate (\$exectime seconds)\" >> .log.5
+	echo \"STEP 3 (Quality Control) terminated at \$sysdate (\$exectime seconds)\" >> .log.5
 	echo \" \" >> .log.5
 	echo \"++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++\" >> .log.5
 	echo \"\" >> .log.5
@@ -510,53 +584,88 @@ process decontaminate {
 
 
 /**
-	STEP 6. Quality control after decontamination. The clean FASTQ file producted by
-	the decontamination step is assessed with FastQC.
+	Quality Assessment - STEP 3. Quality control after decontamination. The clean FASTQ 
+	file producted by the decontamination step is assessed with FastQC.
 
 	An output similar to that generated by STEP 1 is produced
 */
 
-process qualityAssessmentClean {
+//This comment is a place holder. The execution of this step is delegated to the process
+//Quality Assessment, that is reported below and that runs all the QC assessed tasks.
 
-	publishDir  workingdir, mode: 'copy', pattern: "*.{html,txt}"
+
+// ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++   
+//	QUALITY ASSESSMENT AND VISUALISATION
+// ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++   
+
+//Creates the correct objects for the quality assessment, by merging the files derived from
+//trimming and decontamination and the step number, label and step.
+if (params.librarylayout == "paired") {
+	trimmedreads2qc = Channel.from('4').combine(trimmedreads.flatMap().merge( Channel.from( ['_R1', '_R2'] ) ){ a, b -> [a, b] }).combine(Channel.from('_trimmedreads'))
+} 
+else {
+	trimmedreads2qc = Channel.from('4').combine(trimmedreads.flatMap()).combine( Channel.from( '' ) ).combine(Channel.from('_trimmedreads'))
+}
+decontaminatedreads2qc = Channel.from('6').combine(decontaminatedreads).combine( Channel.from( '' ) ).combine(Channel.from('_decontaminatedreads'))
+
+//Creates the channel which performs the QC
+toQC = rawreads.mix(trimmedreads2qc, decontaminatedreads2qc) 
+
+//Process performing all the Quality Assessment
+process qualityAssessment {
 	
+	publishDir  workingdir, mode: 'copy', pattern: "*.{html,txt}"
+	  	
 	input:
-	file reads from decontaminatedreads
+   	set val(step), file(reads), val(label), val(stem) from toQC
 
 	output:
-	file ".log.6" into log6
-	file "${params.prefix}_clean_fastqc.html" 
-	file "${params.prefix}_clean_fastqc_data.txt" 
+	file ".log.$step$label" into logQC
+	file "${params.prefix}*_fastqc.html" 
+	file "${params.prefix}*_fastqc_data.txt" 
 
 	when:
 	params.mode == "QC" || params.mode == "complete"
 
    	script:
-	"""		
+	"""	
 	#Measures execution time
 	sysdate=\$(date)
 	starttime=\$(date +%s.%N)
-	echo \"Performing STEP 6 [Assessment of read quality of decontaminated FASTQ file] at \$sysdate\" >  .log.6
-	echo \" \" >> .log.6
-
+	echo \"Performing Quality Control. [Assessment of read quality] at \$sysdate\" > .log.$step$label
+	echo \"File being analysed: $reads\" >> .log.$step$label
+	echo \" \" >> .log.$step$label
+	
+	#Logs version of the software and executed command
+	version=\$(fastqc --version) 
+	CMD=\"fastqc --quiet --noextract --format fastq --outdir=. --threads ${task.cpus} $reads\"
+	
+	echo \"Using \$version \" >> .log.$step$label
+	echo \"Executing command \$CMD \" >> .log.$step$label
+	echo \" \" >> .log.$step$label
+	
 	#Does QC, extracts relevant information, and removes temporary files
-	bash fastQC.sh $reads ${params.prefix}_clean ${task.cpus} $reads
-
+	bash fastQC.sh $reads ${params.prefix}${stem}${label} ${task.cpus} $reads
+	
 	#Logging QC statistics (number of sequences, Pass/warning/fail, basic statistics, duplication level, kmers)
 	base=\$(basename $reads)
-	bash logQC.sh \$base ${params.prefix}_clean_fastqc_data.txt .log.6
-		
+	bash logQC.sh \$base ${params.prefix}${stem}${label}_fastqc_data.txt .log.$step$label
+				
 	#Measures and log execution time			
 	endtime=\$(date +%s.%N)
 	exectime=\$(echo \"\$endtime - \$starttime\" | bc)
 	sysdate=\$(date)
-	echo \"STEP 6 on $reads terminated at \$sysdate (\$exectime seconds)\" >> .log.6
-	echo \" \" >> .log.6	
-	echo \"++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++\" >> .log.6
-	echo \" \" >> .log.6	
+	echo \"Quality assessment on $reads terminated at \$sysdate (\$exectime seconds)\" >> .log.$step$label
+	echo \" \" >> .log.$step$label	
+	echo \"++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++\" >> .log.$step$label
+	echo \" \" >> .log.$step$label	
 	"""	
 }
 
+
+// ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++    
+//  COMMUNITY CHARACTERISATION 
+// ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++  
 
 //When doing community characterisation from previously QC'd files, this file should be 
 //pushed in the corret channels.
@@ -567,11 +676,12 @@ if (params.mode == "characterisation") {
 	toprofilefunctionreads = Channel.from( file("$workingdir/${params.prefix}_clean.fq") )
 }
 
+
 /**
-	STEP 7. Performs taxonomic binning and estimates the microbial relative abundancies.
-	MetaPhlAn2 and its databases of clade-specific markers are used to infers the presence
-	and relative abundance of the organisms (at the specie level) that are present in the
-	sample and to estimate their relative abundance.
+	Community Characterisation - STEP 1. Performs taxonomic binning and estimates the 
+	microbial relative abundancies. MetaPhlAn2 and its databases of clade-specific markers
+	are used to infers the presence and relative abundance of the organisms (at the specie/ 
+	strain level) that are present in the sample and to estimate their relative abundance.
 
 	Two files are outputted: a tab-separated file reporting the species detected and their
 	relative abundance, and a BIOM file, that will be used to evaluate alpha (STEP 8) and
@@ -602,11 +712,27 @@ process profileTaxa {
 	#Measures execution time
 	sysdate=\$(date)
 	starttime=\$(date +%s.%N)
-	echo \"Performing STEP 7 [Estimates microbial abundancies] at \$sysdate\" > .log.7
+	echo \"Performing Community Characterisation. STEP 1 [Taxonomic binning and profiling] at \$sysdate\" > .log.7
 	echo \" \" >> .log.7
 	
+	#If a file with the same name is already present, Metaphlan2 will crash
 	rm -rf ${params.prefix}_bt2out.txt
-	metaphlan2.py --input_type fastq --tmp_dir=. --biom ${params.prefix}.biom --bowtie2out=${params.prefix}_bt2out.txt --mpa_pkl $mpa_pkl  --bowtie2db $bowtie2db/$params.bowtie2dbfiles --bt2_ps $params.bt2options --nproc ${task.cpus} $infile ${params.prefix}_metaphlan_bugs_list.tsv
+	
+	#Defines command for estimating abundances
+	CMD=\"metaphlan2.py --input_type fastq --tmp_dir=. --biom ${params.prefix}.biom --bowtie2out=${params.prefix}_bt2out.txt --mpa_pkl $mpa_pkl  --bowtie2db $bowtie2db/$params.bowtie2dbfiles --bt2_ps $params.bt2options --nproc ${task.cpus} $infile ${params.prefix}_metaphlan_bugs_list.tsv\"
+
+	#Logs version of the software and executed command 
+	#MetaPhlAn prints on stderr
+	version=\$(metaphlan2.py --version 2>&1 >/dev/null | grep \"MetaPhlAn\")
+	echo \"Using \$version \" >> .log.7
+	echo \"Using BowTie2 database in $params.bowtie2db \" >> .log.7
+	echo \" \" >> .log.7
+	echo \"Executing command: \$CMD \" >> .log.7
+	
+	echo \" \" >> .log.7
+
+	#Estimates microbial abundances
+	exec \$CMD 2>&1 | tee tmp.log
 
 	#Sets the prefix in the biom file
 	sed -i 's/Metaphlan2_Analysis/${params.prefix}/g' ${params.prefix}.biom
@@ -625,7 +751,7 @@ process profileTaxa {
 	exectime=\$(echo \"\$endtime - \$starttime\" | bc)
 	sysdate=\$(date)
 	echo \"\" >> .log.7
-	echo \"STEP 7 terminated at \$sysdate (\$exectime seconds)\" >> .log.7
+	echo \"STEP 1 (Community Characterisation) terminated at \$sysdate (\$exectime seconds)\" >> .log.7
 	echo \" \" >> .log.7
 	echo \"++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++\" >> .log.7
 	echo \"\" >> .log.7
@@ -633,11 +759,12 @@ process profileTaxa {
 }
 
 /**
-	STEP 8. Evaluates alpha-diversity, that is the mean species diversity the
-	given sample. Please note that the alpha diversity is the only per-sample
-	measure, so it is the only one evaluated by this module. If a newick tree
- 	is provided as input (see QIIME documentation for details), a further and
-	more reliable phylogenetic measure is evaluated (i.e., PD_whole_tree).
+	Community Characterisation - STEP 2. Evaluates alpha-diversity, that is the 
+	mean species diversity the given sample. Please note that the alpha diversity 
+	is the only per-sample measure, so it is the only one evaluated by this module. 
+ 	
+	If a newick tree is provided as input (see QIIME documentation for details), a 
+	further and more reliable phylogenetic measure is evaluated (i.e., PD_whole_tree).
 
 	One text file listing the alpha-diversity values, evaluated by means of
 	multiple measure, is outputted.
@@ -649,6 +776,7 @@ process alphaDiversity {
 	
 	input:
 	file(infile) from toalphadiversity
+	file(treepath) from Channel.from( file(params.treepath) )
 	
     output:
 	file ".log.8" into log8
@@ -662,21 +790,37 @@ process alphaDiversity {
 	#Measures execution time
 	sysdate=\$(date)
 	starttime=\$(date +%s.%N)
-	echo \"Performing STEP 8 [Evaluating alpha-diversity] at \$sysdate\" > .log.8
+	echo \"Performing Community Characterisation. STEP 2 [Evaluating alpha-diversity] at \$sysdate\" > .log.8
 	echo \" \" >> .log.8
 
 	#It checks if the profiling was successful, that is if identifies at least three species
 	n=\$(grep -o s__ $infile | wc -l  | cut -d\" \" -f 1)
 	if (( n > 3 ))
 	then
-		#If the tree path is not specified, not all the alpha measures can be evaluated (that is,
-		#PD_whole_tree is skipped)
+		#Defines command -- if the tree path is not specified, not all the alpha 
+		#measures can be evaluated (that is, PD_whole_tree is skipped)
 		if [ $params.treepath == null ]
 		then
-			alpha_diversity.py -i $infile -o ${params.prefix}_alpha_diversity.tsv -m ace,berger_parker_d,brillouin_d,chao1,chao1_ci,dominance,doubles,enspie,equitability,esty_ci,fisher_alpha,gini_index,goods_coverage,heip_e,kempton_taylor_q,margalef,mcintosh_d,mcintosh_e,menhinick,michaelis_menten_fit,observed_otus,observed_species,osd,simpson_reciprocal,robbins,shannon,simpson,simpson_e,singles,strong &> /dev/null
+			CMD=\"alpha_diversity.py -i $infile -o ${params.prefix}_alpha_diversity.tsv -m ace,berger_parker_d,brillouin_d,chao1,chao1_ci,dominance,doubles,enspie,equitability,esty_ci,fisher_alpha,gini_index,goods_coverage,heip_e,kempton_taylor_q,margalef,mcintosh_d,mcintosh_e,menhinick,michaelis_menten_fit,observed_otus,observed_species,osd,simpson_reciprocal,robbins,shannon,simpson,simpson_e,singles,strong\"
 		else
-			alpha_diversity.py -i $infile -o ${params.prefix}_alpha_diversity.tsv -m ace,berger_parker_d,brillouin_d,chao1,chao1_ci,dominance,doubles,enspie,equitability,esty_ci,fisher_alpha,gini_index,goods_coverage,heip_e,kempton_taylor_q,margalef,mcintosh_d,mcintosh_e,menhinick,michaelis_menten_fit,observed_otus,observed_species,osd,simpson_reciprocal,robbins,shannon,simpson,simpson_e,singles,strong,PD_whole_tree &> /dev/null
+			CMD=\"alpha_diversity.py -i $infile -o ${params.prefix}_alpha_diversity.tsv -m ace,berger_parker_d,brillouin_d,chao1,chao1_ci,dominance,doubles,enspie,equitability,esty_ci,fisher_alpha,gini_index,goods_coverage,heip_e,kempton_taylor_q,margalef,mcintosh_d,mcintosh_e,menhinick,michaelis_menten_fit,observed_otus,observed_species,osd,simpson_reciprocal,robbins,shannon,simpson,simpson_e,singles,strong,PD_whole_tree -t $treepath\"
 		fi
+		
+		#Logs version of the software and executed command
+		version=\$(alpha_diversity.py --version) 
+		echo \"Using \$version \" >> .log.8
+		if [ $params.treepath == null ]
+		then
+			echo \"Newick tree not used, PD_whole_tree skipped\" >> .log.8
+		else
+			echo \"Using Newick tree in $params.treepath\" >> .log.8
+		fi
+		echo \" \" >> .log.8
+		echo \"Executing command: \$CMD \" >> .log.8
+		echo \" \" >> .log.8
+		
+		#Evaluates alpha diversities, redirect is done here because QIIME gets it as an extra parameter
+		exec \$CMD 2>&1 | tee tmp.log
 	else
 		#Also if the alpha are not evaluated the file should be created in order to be returned
 		echo \"Not enough species detected (N=\$n). Analysis skipped.\" >> .log.8
@@ -688,7 +832,7 @@ process alphaDiversity {
 	exectime=\$(echo \"\$endtime - \$starttime\" | bc)
 	sysdate=\$(date)
 	echo \"\" >> .log.8
-	echo \"STEP 8 terminated at \$sysdate (\$exectime seconds)\" >> .log.8
+	echo \"STEP 2 (Community Characterisation) terminated at \$sysdate (\$exectime seconds)\" >> .log.8
 	echo \" \" >> .log.8
 	echo \"++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++\" >> .log.8
 	echo \"\" >> .log.8
@@ -697,7 +841,7 @@ process alphaDiversity {
 
 
 /**
-	STEP 9. Performs the functional annotation using HUMAnN2.
+	Community Characterisation - STEP 3. Performs the functional annotation using HUMAnN2.
 	HUMAnN2 will bypasses the taxomonic profiling step (since it has already
 	been performed) and uses the list of specied detected on step 7.
 	While the aligners are forced to be Bowtie2 and DIAMOND, the user can
@@ -744,11 +888,25 @@ process profileFunction {
 	#Measures execution time
  	sysdate=\$(date)
  	starttime=\$(date +%s.%N)
- 	echo \"Performing STEP 9 [Performing functional annotation] with HUMAnN2 at \$sysdate\" > .log.9
+ 	echo \"Performing Community Characterisation. STEP 3 [Performing functional annotation] with HUMAnN2 at \$sysdate\" > .log.9
  	echo \" \" >> .log.9
 
-	#Runs HUMAnN2 taking advantages of the MetaPhlAn2's results
-	humann2 --input $cleanreads --output . --output-basename ${params.prefix} --taxonomic-profile $metaphlanbuglist --nucleotide-database $chocophlan --protein-database $uniref --pathways metacyc --threads ${task.cpus} --memory-use minimum > ${params.prefix}_HUMAnN2.log
+	#Defines HUMAnN2 command taking advantages of the MetaPhlAn2's results
+	CMD=\"humann2 --input $cleanreads --output . --output-basename ${params.prefix} --taxonomic-profile $metaphlanbuglist --nucleotide-database $chocophlan --protein-database $uniref --pathways metacyc --threads ${task.cpus} --memory-use minimum\"
+	
+	#Logs version of the software and executed command
+	#HUMAnN2 prints on stderr
+	version=\$(humann2 --version 2>&1 >/dev/null | grep \"humann2\") 
+	echo \"Using \$version \" >> .log.9
+	echo \"Using ChocoPhlAn database in $params.chocophlan \" >> .log.9
+	echo \"Using UniRef database in $params.uniref \" >> .log.9
+	echo \" \" >> .log.9
+	echo \"Executing command: \$CMD > ${params.prefix}_HUMAnN2.log\" >> .log.9
+	echo \" \" >> .log.9
+	
+	#Performs functional annotation, redirect is done here because HUMAnN2 freaks out
+	#This is  also reported in the log.
+	exec \$CMD 2>&1 | tee ${params.prefix}_HUMAnN2.log 
 
 	#If `|| true` is not add, nextflow stops... WTF 
 	grep \"Total species selected from prescreen:\" ${params.prefix}_HUMAnN2.log >> .log.9 || true
@@ -756,6 +914,7 @@ process profileFunction {
 	grep \"Unaligned reads after nucleotide alignment:\" ${params.prefix}_HUMAnN2.log >> .log.9 || true
 	grep \"Total gene families after translated alignment:\" ${params.prefix}_HUMAnN2.log >> .log.9 || true
 	grep \"Unaligned reads after translated alignment:\" ${params.prefix}_HUMAnN2.log >> .log.9 || true
+	echo \"More information on HUMAnN2 run are available in the ${params.prefix}_HUMAnN2.log file\" >> .log.9 
 
 	#Some of temporary files (if they exist) may be moved in the working directory, 
 	#according to the keepCCtmpfile parameter. Others (such as the bowties2 indexes), 
@@ -778,7 +937,7 @@ process profileFunction {
  	exectime=\$(echo \"\$endtime - \$starttime\" | bc)
  	sysdate=\$(date)
  	echo \"\" >> .log.9
- 	echo \"STEP 9 terminated at \$sysdate (\$exectime seconds)\" >> .log.9
+ 	echo \"STEP 3 (Community Characterisation) terminated at \$sysdate (\$exectime seconds)\" >> .log.9
  	echo \" \" >> .log.9
  	echo \"++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++\" >> .log.9
  	echo \"\" >> .log.9
@@ -794,7 +953,7 @@ process profileFunction {
 process logQC {
 
 	input:
-	file(tolog)  from log1.flatMap().mix(log2, log3, log4.flatMap(), log5, log6).toSortedList( { a, b -> a.name <=> b.name } )
+	file(tolog)  from logQC.flatMap().mix(log2, log3, log5).toSortedList( { a, b -> a.name <=> b.name } )
 
 	when:
 	params.mode == "QC" || params.mode == "complete"

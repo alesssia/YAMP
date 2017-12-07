@@ -9,6 +9,12 @@ YAMP is constructed on [Nextflow](https://github.com/nextflow-io/nextflow), a fr
 YAMP is accompanied by a [Docker container](https://www.docker.com/), that saves the users from the hassle of installing the required software, increasing, at the same time, the reproducibility of the YAMP results (see [Using Docker or Singularity](#using-docker-or-singularity)). 
 
 
+A YAMP preprint is available on bioRxiv at [https://www.biorxiv.org/content/early/2017/11/21/223016](https://www.biorxiv.org/content/early/2017/11/21/223016). Please cite YAMP as:
+
+> Visconti A,. Martin T.C., and Falchi M., *"YAMP: a framework enabling reproducibility in metagenomics research"*, bioRxiv (2017), doi: https://doi.org/10.1101/223016, 
+  
+
+
 ## Table of contents
 
 - [Dependencies](#dependencies)
@@ -127,17 +133,32 @@ nextflow run YAMP.nf --reads1 R1 --reads2 R2 --prefix mysample --outdir outputdi
 
 where `R1` and `R2` represent the path to the raw data (two compressed FASTQ file), `mysample` is a prefix that will be used to label all the resulting files, `outputdir` is the directory where the results will be stored, and `MODE` is any of the following: < QC, characterisation, complete >.
 
+YAMP can also fetch the Docker container directly from DockerHub;
 
-YAMP can use a Docker image with Singularity (without pulling the image) by adding the `-with-singularity` option followed by the image path (`--with-singularity docker://alessia/yampdocker`), that is, the following command:
+```
+nextflow run YAMP.nf --reads1 R1 --reads2 R2 --prefix mysample --outdir outputdir --mode MODE -with-docker docker://alessia/yampdocker
+```
+
+so, even simpler!
+
+YAMP can use a Docker image with Singularity (again without pulling the image) by adding the `-with-singularity` option followed by the image path (`--with-singularity docker://alessia/yampdocker`), that is, the following command:
 
 ```
 nextflow run YAMP.nf --reads1 R1 --reads2 R2 --prefix mysample --outdir outputdir --mode MODE -with-singularity docker://alessia/yampdocker
 ```
 
+
 Please note that Nextflow is not included in the Docker container and should be installed as explained [here](https://www.nextflow.io/docs/latest/getstarted.html).
 
 
 ## Changelog
+
+### 0.9.4 / 2017-12-07
+
+Enhancements:
+* Improved logs
+* Version and help message printed upon request
+
 
 ### 0.9.3.1 / 2017-10-04
 
@@ -165,5 +186,5 @@ YAMP is licensed under GNU GPL v3.
 
 ## Acknowledgements
 
-Alessia would like to thank Brian Bushnell for his helpful suggestions about how to successfully use the BBmap suite in a metagenomics context and for providing several useful resources, and Paolo Di Tommaso, for helping her in using Nextflow properly!
+Alessia would like to thank Brian Bushnell for his helpful suggestions about how to successfully use the BBmap suite in a metagenomics context and for providing several useful resources, and Paolo Di Tommaso, for helping her in using Nextflow properly! Alessia would also like to thank all the users for their valuable feedbacks (and mostly Richard Davies [@richardjdavies](https://github.com/richardjdavies))
 
