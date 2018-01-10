@@ -136,15 +136,15 @@ where `R1` and `R2` represent the path to the raw data (two compressed FASTQ fil
 YAMP can also fetch the Docker container directly from DockerHub;
 
 ```
-nextflow run YAMP.nf --reads1 R1 --reads2 R2 --prefix mysample --outdir outputdir --mode MODE -with-docker docker://alessia/yampdocker
+nextflow run YAMP.nf --reads1 R1 --reads2 R2 --prefix mysample --outdir outputdir --mode MODE -with-docker docker://alesssia/yampdocker
 ```
 
 so, even simpler!
 
-YAMP can use a Docker image with Singularity (again without pulling the image) by adding the `-with-singularity` option followed by the image path (`--with-singularity docker://alessia/yampdocker`), that is, the following command:
+YAMP can use a Docker image with Singularity (again without pulling the image) by adding the `-with-singularity` option followed by the image path (`--with-singularity docker://alesssia/yampdocker`), that is, the following command:
 
 ```
-nextflow run YAMP.nf --reads1 R1 --reads2 R2 --prefix mysample --outdir outputdir --mode MODE -with-singularity docker://alessia/yampdocker
+nextflow run YAMP.nf --reads1 R1 --reads2 R2 --prefix mysample --outdir outputdir --mode MODE -with-singularity docker://alesssia/yampdocker
 ```
 
 
