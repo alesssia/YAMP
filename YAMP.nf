@@ -328,7 +328,7 @@ process dedup {
 
 	#Measures and logs execution time
 	endtime=\$(date +%s.%N)
-	exectime=\$(echo \"\$endtime - \$starttime\" | bc)
+	exectime=\$(echo \"\$endtime \$starttime\" | awk '{print \$1-\$2}')
 	sysdate=\$(date)
 	echo \"STEP 1 (Quality control) terminated at \$sysdate (\$exectime seconds)\" >> .log.2
 	echo \" \" >> .log.2
@@ -462,7 +462,7 @@ process trim {
 
 	#Measures and log execution time
 	endtime=\$(date +%s.%N)
-	exectime=\$(echo \"\$endtime - \$starttime\" | bc)
+	exectime=\$(echo \"\$endtime \$starttime\" | awk '{print \$1-\$2}')
 	sysdate=\$(date)
 	echo \"STEP 2 (Quality Control) terminated at \$sysdate (\$exectime seconds)\" >> .log.3
 	echo \" \" >> .log.3
@@ -572,7 +572,7 @@ process decontaminate {
 
 	#Measures and log execution time
 	endtime=\$(date +%s.%N)
-	exectime=\$(echo \"\$endtime - \$starttime\" | bc)
+	exectime=\$(echo \"\$endtime \$starttime\" | awk '{print \$1-\$2}')
 	sysdate=\$(date)
 	echo \"STEP 3 (Quality Control) terminated at \$sysdate (\$exectime seconds)\" >> .log.5
 	echo \" \" >> .log.5
@@ -653,7 +653,7 @@ process qualityAssessment {
 				
 	#Measures and log execution time			
 	endtime=\$(date +%s.%N)
-	exectime=\$(echo \"\$endtime - \$starttime\" | bc)
+	exectime=\$(echo \"\$endtime \$starttime\" | awk '{print \$1-\$2}')
 	sysdate=\$(date)
 	echo \"Quality assessment on $reads terminated at \$sysdate (\$exectime seconds)\" >> .log.$step$label
 	echo \" \" >> .log.$step$label	
@@ -748,7 +748,7 @@ process profileTaxa {
 
 	#Measures and log execution time
 	endtime=\$(date +%s.%N)
-	exectime=\$(echo \"\$endtime - \$starttime\" | bc)
+	exectime=\$(echo \"\$endtime \$starttime\" | awk '{print \$1-\$2}')
 	sysdate=\$(date)
 	echo \"\" >> .log.7
 	echo \"STEP 1 (Community Characterisation) terminated at \$sysdate (\$exectime seconds)\" >> .log.7
@@ -829,7 +829,7 @@ process alphaDiversity {
 	
 	#Measures and log execution time
 	endtime=\$(date +%s.%N)
-	exectime=\$(echo \"\$endtime - \$starttime\" | bc)
+	exectime=\$(echo \"\$endtime \$starttime\" | awk '{print \$1-\$2}')
 	sysdate=\$(date)
 	echo \"\" >> .log.8
 	echo \"STEP 2 (Community Characterisation) terminated at \$sysdate (\$exectime seconds)\" >> .log.8
@@ -934,7 +934,7 @@ process profileFunction {
 
  	#Measures and log execution time
  	endtime=\$(date +%s.%N)
- 	exectime=\$(echo \"\$endtime - \$starttime\" | bc)
+ 	exectime=\$(echo \"\$endtime \$starttime\" | awk '{print \$1-\$2}')
  	sysdate=\$(date)
  	echo \"\" >> .log.9
  	echo \"STEP 3 (Community Characterisation) terminated at \$sysdate (\$exectime seconds)\" >> .log.9
