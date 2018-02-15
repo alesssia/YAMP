@@ -9,23 +9,26 @@ YAMP is constructed on [Nextflow](https://github.com/nextflow-io/nextflow), a fr
 YAMP is accompanied by a [Docker container](https://www.docker.com/), that saves the users from the hassle of installing the required software, increasing, at the same time, the reproducibility of the YAMP results (see [Using Docker or Singularity](#using-docker-or-singularity)). 
 
 
-A YAMP preprint is available on bioRxiv at [https://www.biorxiv.org/content/early/2017/11/21/223016](https://www.biorxiv.org/content/early/2017/11/21/223016). Please cite YAMP as:
-
-> Visconti A,. Martin T.C., and Falchi M., *"YAMP: a framework enabling reproducibility in metagenomics research"*, bioRxiv (2017), doi: https://doi.org/10.1101/223016, 
-  
-
 
 ## Table of contents
 
+- [Citation](#Citation)
 - [Dependencies](#dependencies)
 - [Installation](#installation)
 - [Other requirements](#other-requirements)
 - [Usage](#usage)
 - [Using Docker or Singularity](#using-docker-or-singularity)
+- [Troubleshooting](#Troubleshooting)
 - [Changelog](#changelog)
 - [License](#license)
 - [Acknowledgements](#acknowledgements)
 
+
+## Citation
+
+A YAMP preprint is available on bioRxiv at [https://www.biorxiv.org/content/early/2017/11/21/223016](https://www.biorxiv.org/content/early/2017/11/21/223016). Please cite YAMP as:
+
+> Visconti A,. Martin T.C., and Falchi M., *"YAMP: a framework enabling reproducibility in metagenomics research"*, bioRxiv (2017), doi: https://doi.org/10.1101/223016, 
 
 
 ## Dependencies
@@ -150,6 +153,10 @@ nextflow run YAMP.nf --reads1 R1 --reads2 R2 --prefix mysample --outdir outputdi
 
 Please note that Nextflow is not included in the Docker container and should be installed as explained [here](https://www.nextflow.io/docs/latest/getstarted.html).
 
+
+## Troubleshooting
+
+We have listed all known issues and solutions on this [wiki page](https://github.com/alesssia/YAMP/wiki/Troubleshooting). Please report any issue using the [GitHub platform](https://github.com/alesssia/YAMP/issues).
 
 ## Changelog
 
