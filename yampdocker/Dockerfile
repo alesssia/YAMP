@@ -1,30 +1,22 @@
-FROM ubuntu:xenial
-FROM continuumio/anaconda
+FROM frolvlad/alpine-glibc:alpine-3.7
 
 MAINTAINER Alessia Visconti <alessia.visconti@gmail.com>
 
-#Updates Ubuntu and intalls some packages that will be used either
-#in for building other software of directly by YAMP
-RUN apt-get update --fix-missing && apt-get install -q -y build-essential 
-RUN apt-get install -q -y wget curl unzip gzip openjdk-7-jdk bc python perl samtools 
+#Installs packages that will be used either for building other software 
+#or directly by YAMP
+RUN apk --update add --no-cache bash procps wget curl gzip perl mesa-gl 
 
-#Updateds anaconda and uses it to install software used by YAMP
+#Installs miniconda 
+RUN wget -q -O Miniconda2-4.4.10-Linux-x86_64.sh http://repo.continuum.io/miniconda/Miniconda2-4.4.10-Linux-x86_64.sh && \
+	bash Miniconda2-4.4.10-Linux-x86_64.sh -f -b -p /opt/conda && \
+	rm Miniconda2-4.4.10-Linux-x86_64.sh
+
+#Exports conda path
+ENV PATH $PATH:/opt/conda/bin/
+
+#Updateds conda and uses it to install software used by YAMP, as well AWS CLI
+#that is required to use YAMP on AWS Batch
 RUN conda update conda -y
-RUN conda install -c bioconda  metaphlan2=2.6.0 qiime=1.9.1 humann2=0.9.9
-
-#Install the last two software, namely FastQC and BBmap
-RUN wget -q -O fastqc.zip http://www.bioinformatics.babraham.ac.uk/projects/fastqc/fastqc_v0.11.5.zip && \
-    unzip fastqc.zip -d /opt/ && \
-    chmod 755 /opt/FastQC/fastqc && \
-    rm fastqc.zip
-
-RUN wget -q -O BBMap_37.09.tar.gz https://sourceforge.net/projects/bbmap/files/BBMap_37.09.tar.gz && \
-	tar -xzf BBMap_37.09.tar.gz && \
-	mv bbmap/ /opt/ && \
-	rm BBMap_37.09.tar.gz
-
-RUN curl -fsSL get.nextflow.io | bash && \
-	mv nextflow /opt/
-
-ENV PATH $PATH:/opt/::/opt/FastQC/:/opt/bbmap
-
+RUN conda install -c bioconda -y bbmap=37.10 fastqc=0.11.5 metaphlan2=2.6.0 qiime=1.9.1 humann2=0.9.9 
+RUN conda install -c conda-forge -y awscli
+RUN conda clean --tarballs -y
