@@ -33,7 +33,18 @@ A YAMP preprint is available on bioRxiv at [https://www.biorxiv.org/content/earl
 
 ## Dependencies
 
-- Nextflow ([https://github.com/nextflow-io/nextflow](https://github.com/nextflow-io/nextflow))
+To run YAMP you will need to install Nextflow  (version 0.26.x or higher), as explained [here](https://www.nextflow.io/docs/latest/getstarted.html). Please note that Nextflow requires BASH and [Java 7](http://www.oracle.com/technetwork/java/javase/downloads/index.html) or higher to be installed. Both should be already available in most of the POSIX compatible systems (Linux, Solaris, OS X, etc). However, as of October 2017, the latest release of Java (SE9) introduces some breaking changes in Nextflow, and should not be used (see [here](https://github.com/nextflow-io/nextflow/issues/462) for details). 
+
+If you are using the containerised version of YAMP (as we strongly suggest), you will should also install [Docker](https://www.docker.com) or [Singularity](http://singularity.lbl.gov/), as explained [here](https://docs.docker.com/engine/installation/) and [here](http://singularity.lbl.gov/docs-installation), respectively.
+In fact, Nextflow orchestrates, in a transparent fashion, the flow of the pipeline by wrapping and executing each step using the Docker/Singularity run command. Thus, Nextflow lies *outside* the container, that is responsible for instantiating. 
+You can find more information about Docker/Singularity containers and Nextflow [here](https://www.nextflow.io/docs/latest/docker.html) and [here](https://www.nextflow.io/docs/latest/singularity.html), respectively.
+
+Once you have either Docker or Singularity up and running, you will not need to install anything additional tools, since all the pieces of software are already available in the Docker container released with YAMP pipeline, and that you can find on [DockerHub](https://hub.docker.com/r/alesssia/yampdocker/). Please refer to [Using Docker or Singularity](#using-docker-or-singularity) for more details. 
+
+**For expert users only.** 
+If you do not want to use the containerised version of YAMP, you will need to install several additional tools for YAMP to work properly, and all of them should either be in the system path with execute and read permission, or made available within a multi-image scenario as the one we describe in the [multi-image scenario tutorial](https://github.com/alesssia/YAMP/wiki/multi-image-scenario).
+
+The list of tools that should be available includes:
 - fastQC v0.11.2+ ([http://www.bioinformatics.babraham.ac.uk/projects/fastqc](http://www.bioinformatics.babraham.ac.uk/projects/fastqc))
 - BBmap v36.92+ ([https://sourceforge.net/projects/bbmap](http://www.bioinformatics.babraham.ac.uk/projects/fastqc))
 - Samtools v1.3.1 ([http://samtools.sourceforge.net](http://samtools.sourceforge.net))
@@ -41,13 +52,8 @@ A YAMP preprint is available on bioRxiv at [https://www.biorxiv.org/content/earl
 - QIIME v1.9.1+ ([http://qiime.org](http://qiime.org))
 - HUMAnN2 v0.9.9+ ([https://bitbucket.org/biobakery/humann2](https://bitbucket.org/biobakery/humann2))
 
-These tools need to be in the system path with execute and read permission. Notably, MetaPhlAn2, QIIME, and HUMAnN2 are also available in [bioconda](https://anaconda.org/bioconda/). 
-
-The required tools (except Nextflow) are also included in a Docker container (please refer to [Using Docker or Singularity](#using-docker-or-singularity)). 
-
-If using the container, both Docker ([https://www.docker.com](https://www.docker.com)) and/or Singularity ([http://singularity.lbl.gov/](http://singularity.lbl.gov/)) and Nextflow should be installed as explained [here](https://docs.docker.com/engine/installation/) and [here](https://www.nextflow.io/docs/latest/getstarted.html). 
-
-Please note that Nextflow requires BASH and [Java 7](http://www.oracle.com/technetwork/java/javase/downloads/index.html) or higher to be installed. Both should be already available in most of the POSIX compatible systems (Linux, Solaris, OS X, etc). However, as of October 2017, the latest release of Java (SE9) introduces some breaking changes in Nextflow, and should not be used (see [Nextflow issue #462](https://github.com/nextflow-io/nextflow/issues/462) for details). 
+Following the links, you will find detailed instructions on how to install them, as explained by their developers. 
+Notably, MetaPhlAn2, QIIME, and HUMAnN2 are also available in [bioconda](https://anaconda.org/bioconda/). 
 
 
 ## Installation
@@ -111,7 +117,7 @@ bbmap.sh -Xmx24G ref=hg19_main_mask_ribo_animal_allplant_allfungus.fa.gz
 	```
 	where `R` represents the path to the raw data (a compressed single-end FASTQ file), `librarylayout single` specifies that single-end reads are at hand, and the other parameters are as above.
 	
-Does it seem complicate? In the YAMP [wiki](https://github.com/alesssia/YAMP/wiki) there are some tutorials!
+Does it seem complicate? In the YAMP [wiki](https://github.com/alesssia/YAMP/wiki) there are some tutorials and a [TL;DR](https://github.com/alesssia/YAMP/wiki/TL%3BDR) if you are in a hurry!
 
 
 ## Using Docker or Singularity
@@ -158,7 +164,19 @@ Please note that Nextflow is not included in the Docker container and should be 
 
 We have listed all known issues and solutions on this [wiki page](https://github.com/alesssia/YAMP/wiki/Troubleshooting). Please report any issue using the [GitHub platform](https://github.com/alesssia/YAMP/issues).
 
+
 ## Changelog
+
+### 0.9.4.1 / 2018-04-24
+
+Enhancements:
+* QC'd files are now compressed (fq.gz) before being saved when `keepQCtmpfile` is true
+
+Fixes:
+* Solved problem in loading data when using single library layout
+* Solved problem in loading data in 'characterisation` mode
+
+
 
 ### 0.9.4 / 2017-12-07
 

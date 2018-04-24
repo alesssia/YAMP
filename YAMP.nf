@@ -22,8 +22,8 @@
 	- https://github.com/alesssia/YAMP/issues
 */
 
-version='0.9.4'
-timestamp='20171207'
+version='0.9.4.1'
+timestamp='20180424'
 
 /**
 	Prints version when asked for
@@ -46,7 +46,7 @@ if (params.help) {
 	System.out.println("")
 	System.out.println("Please report comments and bugs to alessia.visconti@kcl.ac.uk")
 	System.out.println("or at https://github.com/alesssia/YAMP/issues.")
-	System.out.println("Check https://github.com/alesssia/YAMP for updates and refer to")
+	System.out.println("Check https://github.com/alesssia/YAMP for updates, and refer to")
 	System.out.println("https://github.com/alesssia/YAMP/wiki for more details.")
 	System.out.println("")
 	System.out.println("Usage: ")
@@ -64,10 +64,11 @@ if (params.help) {
 	System.out.println("    --dedup         <true|false>   whether to perform de-duplication")
 	System.out.println("    --keepQCtmpfile <true|false>   whether to save QC temporary files")
 	System.out.println("    --keepCCtmpfile <true|false>   whether to save community characterisation temporary files")
+	System.out.println("Please refer to nextflow.config for more options.")
 	System.out.println("")
 	System.out.println("Container:")
 	System.out.println("    Docker image to use with -with-docker|-with-singularity options is")
-	System.out.println("    'docker://alessia/yampdocker'")
+	System.out.println("    'docker://alesssia/yampdocker'")
 	System.out.println("")
 	System.out.println("YAMP supports FASTQ and compressed FASTQ files.")
 	System.out.println("")
@@ -98,13 +99,13 @@ if (params.librarylayout != "paired" && params.librarylayout != "single") {
 	exit 1, "Library layout not available. Choose any of <single, paired>" 
 }   
 
-if (params.qin != 33 && params.qin != 64) { 
+if (params.qin != 33 && params.qin != 64) {  
 	exit 1, "Input quality offset (qin) not available. Choose either 33 (ASCII+33) or 64 (ASCII+64)" 
 }   
 
 //--reads2 can be omitted when the library layout is "single" (indeed it specifies single-end
 //sequencing)
-if (params.librarylayout != "single" && (params.reads2 == "null") ) {
+if (params.mode != "characterisation" && params.librarylayout != "single" && (params.reads2 == "null") ) {
 	exit 1, "If dealing with paired-end reads, please set the reads2 parameters\nif dealing with single-end reads, please set the library layout to 'single'"
 }
 
@@ -141,7 +142,7 @@ but WITHOUT ANY WARRANTY. See the GNU GPL v3.0 for more details.
 
 Please report comments and bugs to alessia.visconti@kcl.ac.uk
 or at https://github.com/alesssia/YAMP/issues.						  
-Check https://github.com/alesssia/YAMP for updates and refer to
+Check https://github.com/alesssia/YAMP for updates, and refer to
 https://github.com/alesssia/YAMP/wiki for more details.
 
 ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++   						   	   
@@ -267,11 +268,14 @@ else {
 
 // Defines channel with <readfile1, readfile2> as input for de-duplicates
 // When layout is single, the params.reads2 is not used, so nevermind its value
-if (params.librarylayout == "paired") {
+if (params.mode == "QC" && params.librarylayout == "paired") {
 	todedup = Channel.value( [file(params.reads1), file(params.reads2)] )
 } 
-else {
+else if (params.mode == "QC") {
 	todedup = Channel.value( [file(params.reads1), "null"] )
+}
+else {
+	todedup = Channel.value( ["null1", "null2"] )
 }
 
 process dedup {
@@ -281,8 +285,8 @@ process dedup {
 
 	output:
 	file  ".log.2" into log2
-	file("${params.prefix}_dedupe*.fq.gz") into totrim
-	file("${params.prefix}_dedupe*.fq.gz") into topublishdedupe
+	file("${params.prefix}_dedupe*.fq") into totrim
+	file("${params.prefix}_dedupe*.fq") into topublishdedupe
 
 	when:
 	(params.mode == "QC" || params.mode == "complete") && params.dedup
@@ -300,9 +304,9 @@ process dedup {
 	
 	#Defines command for de-duplication
 	if [ \"$params.librarylayout\" = \"paired\" ]; then
-		CMD=\"clumpify.sh -Xmx\"\$maxmem\" in1=$in1 in2=$in2 out1=${params.prefix}_dedupe_R1.fq.gz out2=${params.prefix}_dedupe_R2.fq.gz qin=$params.qin dedupe subs=0 threads=${task.cpus}\"
+		CMD=\"clumpify.sh -Xmx\"\$maxmem\" in1=$in1 in2=$in2 out1=${params.prefix}_dedupe_R1.fq out2=${params.prefix}_dedupe_R2.fq qin=$params.qin dedupe subs=0 threads=${task.cpus}\"
 	else
-		CMD=\"clumpify.sh -Xmx\"\$maxmem\" in=$in1 out=${params.prefix}_dedupe.fq.gz qin=$params.qin dedupe subs=0 threads=${task.cpus}\"
+		CMD=\"clumpify.sh -Xmx\"\$maxmem\" in=$in1 out=${params.prefix}_dedupe.fq qin=$params.qin dedupe subs=0 threads=${task.cpus}\"
 	fi
 					
 	#Logs version of the software and executed command (BBmap prints on stderr)
@@ -504,14 +508,15 @@ process trim {
 //and then I take only the first three files.
 mockdecontaminate = Channel.from("null", "null")
 process decontaminate {
-
-	publishDir  workingdir, mode: 'copy', pattern: "*_clean.fq"
+	
+	publishDir  workingdir, mode: 'move', pattern: "*_clean.fq.gz"
 		
 	input:
 	set file(infile1), file(infile2), file(infile12) from todecontaminate.concat(mockdecontaminate).flatMap().take(3).buffer(size : 3)
 	file(refForeingGenome) from Channel.from( file(params.refForeingGenome, type: 'dir') )
 	
 	output:
+	file "*_clean.fq.gz"
 	file  ".log.5" into log5
 	file "${params.prefix}_clean.fq" into decontaminatedreads
 	file "${params.prefix}_clean.fq" into toprofiletaxa
@@ -562,6 +567,8 @@ process decontaminate {
 		sed -n '/Read 1 data:/,/N Rate:/p' tmp.log | tail -17 >> .log.5
 		echo \" \" >> .log.5
 	fi
+
+	gzip -c ${params.prefix}_clean.fq > ${params.prefix}_clean.fq.gz
 
 	nClean=\$(wc -l ${params.prefix}_clean.fq | cut -d\" \" -f 1)
 	nClean=\$((\$nClean/4))
@@ -614,7 +621,7 @@ toQC = rawreads.mix(trimmedreads2qc, decontaminatedreads2qc)
 //Process performing all the Quality Assessment
 process qualityAssessment {
 	
-	publishDir  workingdir, mode: 'copy', pattern: "*.{html,txt}"
+	publishDir  workingdir, mode: 'move', pattern: "*.{html,txt}"
 	  	
 	input:
    	set val(step), file(reads), val(label), val(stem) from toQC
@@ -772,7 +779,7 @@ process profileTaxa {
 
 process alphaDiversity {
 
-	publishDir  workingdir, mode: 'copy', pattern: "*.{tsv}"
+	publishDir  workingdir, mode: 'move', pattern: "*.{tsv}"
 	
 	input:
 	file(infile) from toalphadiversity
@@ -823,7 +830,7 @@ process alphaDiversity {
 		exec \$CMD 2>&1 | tee tmp.log
 	else
 		#Also if the alpha are not evaluated the file should be created in order to be returned
-		echo \"Not enough species detected (N=\$n). Analysis skipped.\" >> .log.8
+		echo \"Not enough classified species detected (N=\$n). Analysis skipped.\" >> .log.8
 		touch ${params.prefix}_alpha_diversity.tsv 
 	fi
 	
@@ -967,7 +974,7 @@ process logQC {
 /**
 	CLEANUP 2. Saves the temporary files generate during QC (if the users requested so)
 */
-
+	
 	
 process saveQCtmpfile {
 
@@ -977,14 +984,14 @@ process saveQCtmpfile {
 	file (tmpfile) from topublishdedupe.mix(topublishtrim, topublishdecontaminate).flatMap()
 
 	output:
-	file "$tmpfile"
+	file "*.fq.gz"
 
 	when:
 	(params.mode == "QC" || params.mode == "complete") && params.keepQCtmpfile
 		
 	script:
 	"""
-	echo $tmpfile
+	gzip --force -c $tmpfile > ${tmpfile}.gz
 	"""
 }
 
@@ -1011,7 +1018,7 @@ process logCC {
 	CLEANUP 4. Saves the temporary files generate during the community characterisation 
 	(if the users requested so)
 */
-
+	
 	
 process saveCCtmpfile {
 
