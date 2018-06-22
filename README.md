@@ -26,9 +26,9 @@ YAMP is accompanied by a [Docker container](https://www.docker.com/), that saves
 
 ## Citation
 
-A YAMP preprint is available on bioRxiv at [https://www.biorxiv.org/content/early/2017/11/21/223016](https://www.biorxiv.org/content/early/2017/11/21/223016). Please cite YAMP as:
+Please cite YAMP as:
 
-> Visconti A,. Martin T.C., and Falchi M., *"YAMP: a framework enabling reproducibility in metagenomics research"*, bioRxiv (2017), doi: https://doi.org/10.1101/223016, 
+> Visconti A,. Martin T.C., and Falchi M., *"YAMP: a containerised workflow enabling reproducibility in metagenomics research"*, GigaScience (2018), [https://doi.org/10.1093/gigascience/giy072](https://doi.org/10.1093/gigascience/giy072)
 
 
 ## Dependencies
