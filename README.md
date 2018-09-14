@@ -33,7 +33,7 @@ Please cite YAMP as:
 
 ## Dependencies
 
-To run YAMP you will need to install Nextflow  (version 0.26.x or higher), as explained [here](https://www.nextflow.io/docs/latest/getstarted.html). Please note that Nextflow requires BASH and [Java 7](http://www.oracle.com/technetwork/java/javase/downloads/index.html) or higher to be installed. Both should be already available in most of the POSIX compatible systems (Linux, Solaris, OS X, etc). However, as of October 2017, the latest release of Java (SE9) introduces some breaking changes in Nextflow, and should not be used (see [here](https://github.com/nextflow-io/nextflow/issues/462) for details). 
+To run YAMP you will need to install Nextflow  (version 0.29.x or higher), as explained [here](https://www.nextflow.io/docs/latest/getstarted.html). Please note that Nextflow requires BASH and [Java 7](http://www.oracle.com/technetwork/java/javase/downloads/index.html) or higher to be installed. Both should be already available in most of the POSIX compatible systems (Linux, Solaris, OS X, etc). However, as of October 2017, the latest release of Java (SE9) introduces some breaking changes in Nextflow, and should not be used (see [here](https://github.com/nextflow-io/nextflow/issues/462) for details). 
 
 If you are using the containerised version of YAMP (as we strongly suggest), you will should also install [Docker](https://www.docker.com) or [Singularity](http://singularity.lbl.gov/), as explained [here](https://docs.docker.com/engine/installation/) and [here](http://singularity.lbl.gov/docs-installation), respectively.
 In fact, Nextflow orchestrates, in a transparent fashion, the flow of the pipeline by wrapping and executing each step using the Docker/Singularity run command. Thus, Nextflow lies *outside* the container, that is responsible for instantiating. 
@@ -166,6 +166,14 @@ We have listed all known issues and solutions on this [wiki page](https://github
 
 
 ## Changelog
+
+### 0.9.4.2 / 2018-09-14
+
+Fixes:
+* Solved problem in loading data in 'complete` mode
+
+Notes:
+* YAMP now requires Nextflow version 0.29.x or higher
 
 ### 0.9.4.1 / 2018-04-24
 

@@ -22,8 +22,8 @@
 	- https://github.com/alesssia/YAMP/issues
 */
 
-version='0.9.4.1'
-timestamp='20180424'
+version='0.9.4.2'
+timestamp='20180914'
 
 /**
 	Prints version when asked for
@@ -268,10 +268,11 @@ else {
 
 // Defines channel with <readfile1, readfile2> as input for de-duplicates
 // When layout is single, the params.reads2 is not used, so nevermind its value
-if (params.mode == "QC" && params.librarylayout == "paired") {
+// When staring from externally QC'd reads, I don't need neither <readfile1, readfile2> 
+if (params.mode != "characterisation" && params.librarylayout == "paired") {
 	todedup = Channel.value( [file(params.reads1), file(params.reads2)] )
 } 
-else if (params.mode == "QC") {
+else if (params.mode != "characterisation" && params.librarylayout == "single") {
 	todedup = Channel.value( [file(params.reads1), "null"] )
 }
 else {
