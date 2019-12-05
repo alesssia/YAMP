@@ -22,8 +22,8 @@
 	- https://github.com/alesssia/YAMP/issues
 */
 
-version='0.9.4.2'
-timestamp='20180914'
+version='0.9.4.3'
+timestamp='20191206'
 
 /**
 	Prints version when asked for
@@ -510,7 +510,7 @@ process trim {
 mockdecontaminate = Channel.from("null", "null")
 process decontaminate {
 	
-	publishDir  workingdir, mode: 'move', pattern: "*_clean.fq.gz"
+	publishDir  workingdir, mode: 'copy', pattern: "*_clean.fq.gz"
 		
 	input:
 	set file(infile1), file(infile2), file(infile12) from todecontaminate.concat(mockdecontaminate).flatMap().take(3).buffer(size : 3)
@@ -519,9 +519,9 @@ process decontaminate {
 	output:
 	file "*_clean.fq.gz"
 	file  ".log.5" into log5
-	file "${params.prefix}_clean.fq" into decontaminatedreads
-	file "${params.prefix}_clean.fq" into toprofiletaxa
-	file "${params.prefix}_clean.fq" into toprofilefunctionreads
+	file "${params.prefix}_clean.fq.gz" into decontaminatedreads
+	file "${params.prefix}_clean.fq.gz" into toprofiletaxa
+	file "${params.prefix}_clean.fq.gz" into toprofilefunctionreads
 	file "${params.prefix}_cont.fq" into topublishdecontaminate
 
 	when:
@@ -622,7 +622,7 @@ toQC = rawreads.mix(trimmedreads2qc, decontaminatedreads2qc)
 //Process performing all the Quality Assessment
 process qualityAssessment {
 	
-	publishDir  workingdir, mode: 'move', pattern: "*.{html,txt}"
+	publishDir  workingdir, mode: 'copy', pattern: "*.{html,txt}"
 	  	
 	input:
    	set val(step), file(reads), val(label), val(stem) from toQC
@@ -680,8 +680,8 @@ process qualityAssessment {
 //Please note that the name of the file externally QC'ed should be the same of the 
 //one geneared by the YAMP, that is prefix_clean.fq, and should include ALL the reads.
 if (params.mode == "characterisation") {
-	toprofiletaxa =  Channel.from( file("$workingdir/${params.prefix}_clean.fq") )
-	toprofilefunctionreads = Channel.from( file("$workingdir/${params.prefix}_clean.fq") )
+	toprofiletaxa =  Channel.from( file("$workingdir/${params.prefix}_clean.fq.gz") )
+	toprofilefunctionreads = Channel.from( file("$workingdir/${params.prefix}_clean.fq.gz") )
 }
 
 
@@ -780,7 +780,7 @@ process profileTaxa {
 
 process alphaDiversity {
 
-	publishDir  workingdir, mode: 'move', pattern: "*.{tsv}"
+	publishDir  workingdir, mode: 'copy', pattern: "*.{tsv}"
 	
 	input:
 	file(infile) from toalphadiversity
