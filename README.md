@@ -167,6 +167,13 @@ We have listed all known issues and solutions on this [wiki page](https://github
 
 ## Changelog
 
+### 0.9.4.3 / 2019-12-06
+
+Fixes:
+* Solved problem with compressed files in 'characterisation` mode
+* Fixed warnings (Nextflow v19.10.0)
+
+
 ### 0.9.4.2 / 2018-09-14
 
 Fixes:
