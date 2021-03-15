@@ -214,7 +214,7 @@ ${summary.collect { k,v -> "            <dt>$k</dt><dd><samp>${v ?: '<span style
 process get_software_versions {
 
 	output:
-	path 'software_versions_mqc.yaml' into software_versions_yaml
+	path "software_versions_mqc.yaml" into software_versions
 
 	script:
 	// TODO nf-core: Get all tools to print their version number here
@@ -244,17 +244,67 @@ process get_software_versions {
 
 if(params.singleEnd) {
 	Channel
-	.from([params.prefix, params.reads1, params.reads2])
-	.map { row -> [ row[0], [file(row[1])]] }
-	.ifEmpty { exit 1, "Internal error: params.readPaths was empty - no input files supplied" }
+	.from([[params.prefix, [file(params.reads1)]]])
 	.into { read_files_fastqc; read_files_dedup; read_files_synthetic_contaminants }
 } else {
 	Channel
-	.from([params.prefix, params.reads1, params.reads2] )
-	.map { row -> [ row[0], [file(row[1]), file(row[2])]] }
-	.ifEmpty { exit 1, "Internal error: params.readPaths was empty - no input files supplied" }
+	.from([[params.prefix, [file(params.reads1), file(params.reads2)]]] )
 	.into { read_files_fastqc; read_files_dedup; read_files_synthetic_contaminants }
 }
+
+// ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++   
+//	QUALITY CONTROL 
+// ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++   
+
+/**
+	Quality Control - STEP 1. De-duplication. Only exact duplicates are removed.
+
+	This step is OPTIONAL. De-duplication should be carried on iff you are
+    using PCR amplification (in this case identical reads are technical artefacts)
+	but not otherwise (identical reads will identify natural duplicates).
+*/
+
+process dedup {
+	
+    tag "$name"
+    
+	//Enable multicontainer settings
+    conda (params.enable_conda ? params.conda_bbmap : null)
+    if (workflow.containerEngine == 'singularity') {
+        container params.singularity_container_bbmap
+    } else {
+        container params.docker_container_bbmap
+    }
+		
+	input:
+	tuple val(name), file(reads) from read_files_dedup
+
+	output:
+	tuple val(name), path("${name}_dedup*.fq.gz") into to_synthetic_contaminants
+	path "dedup_mqc.yaml" into dedup_log
+
+	when:
+	(params.mode == "QC" || params.mode == "complete") && params.dedup
+
+	script:
+	// This is to deal with single and paired end reads
+	def input = params.singleEnd ? "in=\"${reads[0]}\"" :  "in1=\"${reads[0]}\" in2=\"${reads[1]}\""
+	def output = params.singleEnd ? "out=\"${name}_dedup.fq.gz\"" :  "out1=\"${name}_dedup_R1.fq.gz\" out2=\"${name}_dedup_R2.fq.gz\""
+	
+	"""
+	#Sets the maximum memory to the value requested in the config file
+	maxmem=\$(echo \"$task.memory\" | sed 's/ //g' | sed 's/B//g')
+	echo \"$reads\"
+    clumpify.sh -Xmx\"\$maxmem\" $input $output qin=$params.qin dedupe subs=0 threads=${task.cpus} &> dedup_mqc.txt
+	
+	# MultiQC doesn't have a module for clumpify yet. As a consequence, I
+	# had to create a YAML file with all the info I need via a bash script
+	bash scrape_dedup_log.sh > dedup_mqc.yaml
+	"""
+}
+
+
+
 
 
 /**
@@ -280,9 +330,9 @@ process multiqc {
 	file multiqc_config
 	// TODO nf-core: Add in log files from your new processes for MultiQC to find!
 	file workflow_summary from create_workflow_summary(summary)
-	file ('software_versions/*') from software_versions_yaml
+	path ('software_versions/*') from software_versions
 	// file ('fastqc/*') from fastqc_results.collect().ifEmpty([])
-	// file ('dedup_mqc.yaml') from dedup_log
+	path ('dedup/*') from dedup_log
 	// file ('synthetic_contaminants_mqc.yaml') from synthetic_contaminants_log
 	// file ('trimming_mqc.yaml') from trimming_log
 	
