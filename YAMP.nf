@@ -177,7 +177,6 @@ summary['Starting time'] = new java.util.Date()
 
 
 log.info summary.collect { k,v -> "${k.padRight(30)}: $v" }.join("\n")
-log.info "++++++++++++++++++++++++++++++++++++++++++++++++++++++"
 log.info ""
 
 
@@ -191,7 +190,7 @@ log.info ""
 def create_workflow_summary(summary) {
     def yaml_file = workDir.resolve('workflow_summary_mqc.yaml')
     yaml_file.text  = """
-    id: 'YAMP-summary'
+    id: 'workflow-summary'
     description: "This information is collected when the pipeline is started."
     section_name: 'YAMP Workflow Summary'
     section_href: 'https://github.com/alesssia/yamp'
@@ -214,7 +213,7 @@ ${summary.collect { k,v -> "            <dt>$k</dt><dd><samp>${v ?: '<span style
 process get_software_versions {
 
 	output:
-	path "software_versions_mqc.yaml" into software_versions
+	file "software_versions_mqc.yaml" into software_versions_yaml
 
 	script:
 	// TODO nf-core: Get all tools to print their version number here
@@ -281,8 +280,8 @@ process dedup {
 
 	output:
 	tuple val(name), path("${name}_dedup*.fq.gz") into to_synthetic_contaminants
-	path "dedup_mqc.yaml" into dedup_log
-
+	file "dedup_mqc.yaml" into dedup_log
+	
 	when:
 	(params.mode == "QC" || params.mode == "complete") && params.dedup
 
@@ -303,6 +302,105 @@ process dedup {
 	"""
 }
 
+/**
+	Quality control - STEP 2. A decontamination of synthetic sequences and artefacts 
+	is performed.
+*/
+
+//When the de-suplication is not done, the raw file should be pushed in the corret channel
+//FIXME: make this also optional?
+if (!params.dedup) {
+	to_synthetic_contaminants = read_files_synthetic_contaminants
+}
+
+// Defines channels for resources file 
+Channel.fromPath( "${params.artefacts}", checkIfExists: true ).set { artefacts }
+Channel.fromPath( "${params.phix174ill}", checkIfExists: true ).set { phix174ill }
+
+process remove_synthetic_contaminants {
+	
+	tag "$name"
+	
+	//Enable multicontainer settings
+    conda (params.enable_conda ? params.conda_bbmap : null)
+    if (workflow.containerEngine == 'singularity') {
+        container params.singularity_container_bbmap
+    } else {
+        container params.docker_container_bbmap
+    }
+
+	input:
+	tuple file(artefacts), file(phix174ill), val(name), file(reads) from artefacts.combine(phix174ill).combine(to_synthetic_contaminants)
+   
+	output:
+	tuple val(name), path("${name}_no_synthetic_contaminants*.fq.gz") into to_trimming
+	file "synthetic_contaminants_mqc.yaml" into synthetic_contaminants_log
+	
+	when:
+	params.mode == "QC" || params.mode == "complete"
+
+   	script:
+	def input = params.singleEnd ? "in=\"${reads[0]}\"" :  "in1=\"${reads[0]}\" in2=\"${reads[1]}\""
+	def output = params.singleEnd ? "out=\"${name}_no_synthetic_contaminants.fq.gz\"" :  "out=\"${name}_no_synthetic_contaminants_R1.fq.gz\" out2=\"${name}_no_synthetic_contaminants_R2.fq.gz\""
+	"""
+	#Sets the maximum memory to the value requested in the config file
+	maxmem=\$(echo ${task.memory} | sed 's/ //g' | sed 's/B//g')
+	bbduk.sh -Xmx\"\$maxmem\" $input $output k=31 ref=$phix174ill,$artefacts qin=$params.qin threads=${task.cpus} ow &> synthetic_contaminants_mqc.txt
+	
+	# MultiQC doesn't have a module for bbduk yet. As a consequence, I
+	# had to create a YAML file with all the info I need via a bash script
+	bash scrape_remove_synthetic_contaminants_log.sh > synthetic_contaminants_mqc.yaml
+	"""
+}
+
+
+/**
+	Quality control - STEP 3. Trimming of low quality bases and of adapter sequences. 
+	Short reads are discarded. 
+	
+	If dealing with paired-end reads, when either forward or reverse of a paired-read
+	are discarded, the surviving read is saved on a file of singleton reads.
+*/
+
+// Defines channels for resources file 
+Channel.fromPath( "${params.adapters}", checkIfExists: true ).set { adapters }
+
+process trim {
+
+	tag "$name"
+	
+	//Enable multicontainer settings
+    conda (params.enable_conda ? params.conda_bbmap : null)
+    if (workflow.containerEngine == 'singularity') {
+        container params.singularity_container_bbmap
+    } else {
+        container params.docker_container_bbmap
+    }
+	
+	input:
+	tuple file(adapters), val(name), file(reads) from adapters.combine(to_trimming) 
+	
+	output:
+	tuple val(name), path("${name}_trimmed*.fq.gz") into to_decontaminate
+	file "trimming_mqc.yaml" into trimming_log
+	
+	when:
+	params.mode == "QC" || params.mode == "complete"
+
+   	script:
+	def input = params.singleEnd ? "in=\"${reads[0]}\"" :  "in1=\"${reads[0]}\" in2=\"${reads[1]}\""
+	def output = params.singleEnd ? "out=\"${name}_trimmed.fq.gz\"" :  "out=\"${name}_trimmed_R1.fq.gz\" out2=\"${name}_trimmed_R2.fq.gz\" outs=\"${name}_trimmed_singletons.fq.gz\""
+	"""
+	#Sets the maximum memory to the value requested in the config file
+	maxmem=\$(echo ${task.memory} | sed 's/ //g' | sed 's/B//g')
+
+	bbduk.sh -Xmx\"\$maxmem\" $input $output ktrim=r k=$params.kcontaminants mink=$params.mink hdist=$params.hdist qtrim=rl trimq=$params.phred  minlength=$params.minlength ref=$adapters qin=$params.qin threads=${task.cpus} tbo tpe ow &> trimming_mqc.txt
+
+	# MultiQC doesn't have a module for bbduk yet. As a consequence, I
+	# had to create a YAML file with all the info I need via a bash script
+	bash scrape_trimming_log.sh > trimming_mqc.yaml
+	"""
+}
 
 
 
@@ -330,11 +428,11 @@ process multiqc {
 	file multiqc_config
 	// TODO nf-core: Add in log files from your new processes for MultiQC to find!
 	file workflow_summary from create_workflow_summary(summary)
-	path ('software_versions/*') from software_versions
+	file "software_versions_mqc.yaml" from software_versions_yaml
 	// file ('fastqc/*') from fastqc_results.collect().ifEmpty([])
-	path ('dedup/*') from dedup_log
-	// file ('synthetic_contaminants_mqc.yaml') from synthetic_contaminants_log
-	// file ('trimming_mqc.yaml') from trimming_log
+	file "dedup_mqc.yaml" from dedup_log
+	file "synthetic_contaminants_mqc.yaml" from synthetic_contaminants_log
+	file "trimming_mqc.yaml" from trimming_log
 	
 	output:
 	path "*multiqc_report.html" into multiqc_report

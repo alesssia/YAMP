@@ -3,7 +3,7 @@ from __future__ import print_function
 from collections import OrderedDict
 import re
 
-# TODO nf-core: Add additional regexes for new tools in process get_software_versions
+# TODO: Add additional regexes for new tools in process get_software_versions
 regexes = {
     'YAMP': ['v_pipeline.txt', r"(\S+)"],
     'Nextflow': ['v_nextflow.txt', r"(\S+)"],
@@ -28,11 +28,11 @@ for k, v in regexes.items():
 
 # Dump to YAML
 print ('''
-id: 'yamp-software-versions'
+id: 'software-versions'
 section_name: 'YAMP Software Versions'
 section_href: 'https://github.com/alesssia/yamp'
 plot_type: 'html'
-description: 'This information is collected at run time from the containers' specification.'
+description: 'This information is collected at run time from the containers specification.'
 data: |
     <dl class="dl-horizontal">
 ''')
