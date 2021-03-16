@@ -7,7 +7,7 @@ remR=$(grep "Duplicates Found:" dedup_mqc.txt | cut -f 1 | cut -d: -f 2 | sed 's
 survivedR=$(($totR-$remR))
 percentage=$(echo $survivedR $totR | awk '{print $1/$2*100}' )
 percentage=`printf "%.2f" $percentage`
-time=$(grep "Total time:" dedup_mqc.txt | cut -d: -f 2 | cut -f 2 | sed 's/s\.//g')
+time=$(grep "Total time:" dedup_mqc.txt | cut -d: -f 2 | cut -f 2 | sed 's/s\./s/g')
 
 # Dump to YAML
 echo "id: 'deduplication'" > dedup_mqc.yaml
