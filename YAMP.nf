@@ -55,7 +55,7 @@ def helpMessage()
 	--mode     <QC|characterisation|complete>
 	
 	Options:
-	--singleEnd     <true|false>
+	--singleEnd     <true|false>   whether the layout is single-end
 	--dedup         <true|false>   whether to perform de-duplication
 
 	Please refer to nextflow.config for more options.
@@ -137,52 +137,115 @@ Analysis introspection:
 """
 
 def summary = [:]
+
+summary['Starting time'] = new java.util.Date() 
+//Environment
+summary['Environment'] = ""
 summary['Pipeline Name'] = 'YAMP'
 summary['Pipeline Version'] = workflow.manifest.version
-
-summary['Nextflow version'] = nextflow.version.toString() + " build " + nextflow.build.toString() + " (" + nextflow.timestamp + ")"
-
-summary['Java version'] = System.getProperty("java.version") //Java Runtime Environment version
-summary['Java Virtual Machine'] = System.getProperty("java.vm.name") + "(" + System.getProperty("java.vm.version") + ")"
-
-summary['Reads'] = "[" + params.reads1 + ", " + params.reads2 + "]"
-summary['Prefix'] = params.prefix
-summary['Running mode'] = params.mode
-summary['Layout'] = params.singleEnd ? 'Single-End' : 'Paired-End'
-summary['Performing de-duplication'] = params.dedup
-
-if (params.mode != "characterisation" && params.foreign_genome_ref != "") {
-	summary['Contaminant (pan)genome'] = params.foreign_genome_ref + " (indexed)"
-} else if (params.mode != "characterisation" && params.foreign_genome_ref == "") {
-	summary['Contaminant (pan)genome'] = params.foreign_genome
-}	
-
-summary['Output dir'] = workingpath
-summary['Working dir'] = workflow.workDir
-summary['Output dir'] = params.outdir
-summary['Script dir'] = workflow.projectDir
-summary['Lunching dir'] = workflow.launchDir
 
 summary['Config Profile'] = workflow.profile
 summary['Resumed'] = workflow.resume
 		
-summary['Command Line'] = workflow.commandLine	
+summary['Nextflow version'] = nextflow.version.toString() + " build " + nextflow.build.toString() + " (" + nextflow.timestamp + ")"
+
+summary['Java version'] = System.getProperty("java.version")
+summary['Java Virtual Machine'] = System.getProperty("java.vm.name") + "(" + System.getProperty("java.vm.version") + ")"
+
+summary['Operating system'] = System.getProperty("os.name") + " " + System.getProperty("os.arch") + " v" +  System.getProperty("os.version")
+summary['User name'] = System.getProperty("user.name") //User's account name
 
 summary['Container Engine'] = workflow.containerEngine
 if(workflow.containerEngine) summary['Container'] = workflow.container
+
+if (params.mode != "characterisation") 
+{
+	if (params.enable_conda){
+		summary['BBmap'] = "bioconda::bbmap=38.87-0"
+		summary['FastQC'] = "bioconda::fastqc=0.11.9-0"
+		summary['MultiQC'] = "bioconda::multiqc=1.9-1"
+	} else if (workflow.containerEngine == 'singularity') {
+	   	summary['BBmap'] = "https://depot.galaxyproject.org/singularity/bbmap:38.87--h1296035_0"
+		summary['FastQC'] = "https://depot.galaxyproject.org/singularity/fastqc:0.11.9--0"
+		summary['MultiQC'] = "https://depot.galaxyproject.org/singularity/multiqc:1.9--py_1"
+	} else if (workflow.containerEngine == 'docker') {
+    	summary['BBmap'] = "quay.io/biocontainers/bbmap:38.87--h1296035_0"
+		summary['FastQC'] = "quay.io/biocontainers/fastqc:0.11.9--0"
+		summary['MultiQC'] = "quay.io/biocontainers/multiqc:1.9--py_1"
+	} else {
+		summary['BBmap'] = "No container information"
+		summary['FastQC'] = "No container information"
+		summary['MultiQC'] = "No container information"
+	}
+}
+
+// TODO: complete
+/*if (params.mode != "QC")
+{
+	if (params.enable_conda){
+
+	} else if (workflow.containerEngine == 'singularity') {
+
+	} else if (workflow.containerEngine == 'singularity') {
+
+	} else {
+
+	}
+}*/
 
 if(workflow.profile == 'awsbatch'){
 	summary['AWS Region'] = params.awsregion
 	summary['AWS Queue'] = params.awsqueue
 }
 
+//General
+summary['Running parameters'] = ""
+summary['Reads'] = "[" + params.reads1 + ", " + params.reads2 + "]"
+summary['Prefix'] = params.prefix
+summary['Running mode'] = params.mode
+
+if (params.mode != "characterisation") 
+{
+	summary['Layout'] = params.singleEnd ? 'Single-End' : 'Paired-End'
+	summary['Performing de-duplication'] = params.dedup
+
+	//Trimming
+	summary['Trimming parameters'] = ""
+	summary['Input quality offset'] = params.qin == 33 ? 'ASCII+33' : 'ASCII+64'
+	summary['Min phred score'] = params.phred
+	summary['Min length'] = params.minlength
+	summary['Shorter kmer'] = params.mink 
+	summary['Max Hamming distance'] = params.hdist 
+
+	//Decontamination
+	summary['Decontamination parameters'] = ""
+	if (params.foreign_genome_ref != "") {
+		summary['Contaminant (pan)genome'] = params.foreign_genome_ref + " (indexed)"
+	} else if (	params.foreign_genome_ref == "") {
+		summary['Contaminant (pan)genome'] = params.foreign_genome
+	}	
+	summary['Min alignment identity'] = params.mind
+	summary['Max indel length'] = params.maxindel
+	summary['Max alignment band'] = params.bwr
+}
+
+if (params.mode != "QC")
+{
+	//TODO add MP/QUIIME/HM3 options
+}
+
+//Folders
+summary['Folders'] = ""
+summary['Output dir'] = workingpath
+summary['Working dir'] = workflow.workDir
+summary['Output dir'] = params.outdir
+summary['Script dir'] = workflow.projectDir
+summary['Lunching dir'] = workflow.launchDir
+
 //FIXME: adding ending time
-summary['Operating system'] = System.getProperty("os.name") + " " + System.getProperty("os.arch") + " v" +  System.getProperty("os.version")
-summary['User name'] = System.getProperty("user.name") //User's account name
-summary['Starting time'] = new java.util.Date() 
 
 
-log.info summary.collect { k,v -> "${k.padRight(30)}: $v" }.join("\n")
+log.info summary.collect { k,v -> "${k.padRight(27)}: $v" }.join("\n")
 log.info ""
 
 
@@ -203,7 +266,7 @@ def create_workflow_summary(summary) {
     plot_type: 'html'
     data: |
         <dl class=\"dl-horizontal\">
-${summary.collect { k,v -> "            <dt>$k</dt><dd><samp>${v ?: '<span style=\"color:#999999;\">N/A</a>'}</samp></dd>" }.join("\n")}
+${summary.collect { k,v -> "            <dt>$k</dt><dd>$v</dd>" }.join("\n")}
         </dl>
     """.stripIndent()
 
