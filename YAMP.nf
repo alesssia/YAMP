@@ -320,9 +320,9 @@ if(params.singleEnd) {
 	.into { read_files_fastqc; read_files_dedup; read_files_synthetic_contaminants }
 }
 
-// ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++   
+// ------------------------------------------------------------------------------   
 //	QUALITY CONTROL 
-// ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++   
+// ------------------------------------------------------------------------------   
 
 /**
 	Quality Control - STEP 1. De-duplication. Only exact duplicates are removed.
@@ -534,7 +534,7 @@ process decontaminate {
         container params.docker_container_bbmap
     }
 
-	publishDir workingdir, mode: 'copy', pattern: "*QCd.fq.gz"
+	publishDir "${params.outdir}/${params.prefix}", mode: 'copy', pattern: "*QCd.fq.gz"
 
 	input:
 	tuple path(ref_foreign_genome), val(name), file(reads) from ref_foreign_genome.combine(to_decontaminate)
@@ -567,8 +567,42 @@ process decontaminate {
 }
 
 
+// ------------------------------------------------------------------------------   
+//	QUALITY ASSESSMENT 
+// ------------------------------------------------------------------------------   
 
 
+process quality_assessment {
+	
+    tag "$name"
+	
+	//Enable multicontainer settings
+    conda (params.enable_conda ? params.conda_fastqc : null)
+    if (workflow.containerEngine == 'singularity') {
+        container params.singularity_container_fastqc
+    } else {
+        container params.docker_container_fastqc
+    }
+	
+	publishDir "${params.outdir}/${params.prefix}/fastqc", mode: 'copy' //,
+        //saveAs: {filename -> filename.indexOf(".zip") > 0 ? "fastqc_zips/$filename" : "$filename"}
+
+    input:
+    set val(name), file(reads) from read_files_fastqc.mix(qcd_reads)
+
+    output:
+    path "*_fastqc.{zip,html}" into fastqc_log
+
+    script:
+    """
+    fastqc -q $reads
+    """
+}
+
+
+// ------------------------------------------------------------------------------   
+//	MULTIQC LOGGING
+// ------------------------------------------------------------------------------   
 
 
 /**
@@ -580,11 +614,9 @@ process decontaminate {
 // Stage config files
 multiqc_config = file(params.multiqc_config)
 
-process multiqc {
+process log {
 	
-	tag "$name"
-		
-	publishDir workingdir, mode: 'copy'
+	publishDir "${params.outdir}/${params.prefix}", mode: 'copy'
 
     conda (params.enable_conda ? params.conda_multiqc : null)
     if (workflow.containerEngine == 'singularity') {
@@ -598,20 +630,21 @@ process multiqc {
 	// TODO nf-core: Add in log files from your new processes for MultiQC to find!
 	file workflow_summary from create_workflow_summary(summary)
 	file "software_versions_mqc.yaml" from software_versions_yaml
-	// file ('fastqc/*') from fastqc_results.collect().ifEmpty([])
+	path 'fastqc/*' from fastqc_log.collect().ifEmpty([])
 	file "dedup_mqc.yaml" from dedup_log
 	file "synthetic_contaminants_mqc.yaml" from synthetic_contaminants_log
 	file "trimming_mqc.yaml" from trimming_log
 	file "decontamination_mqc.yaml" from decontaminate_log
 	
 	output:
-	path "*multiqc_report.html" into multiqc_report
-	path "*_data"
+	path "*multiqc_report*.html" into multiqc_report
+	path "*_data*"
 
 	script:
-	// TODO nf-core: Specify which MultiQC modules to use with -m for a faster run time
 	"""
-	multiqc --config $multiqc_config .
+	multiqc --config $multiqc_config . -f
+	mv multiqc_report.html ${params.prefix}_multiqc_report_${params.mode}.html
+	mv multiqc_data ${params.prefix}_multiqc_data_${params.mode}
 	"""
 }
 
