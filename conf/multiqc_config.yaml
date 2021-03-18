@@ -49,6 +49,8 @@ report_section_order:
       order: 14
     metaphlan:
       order: 13
+    humann:
+      order: 12
     software-versions:
       order: -1
     workflow-summary:

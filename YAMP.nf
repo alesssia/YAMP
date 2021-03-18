@@ -671,11 +671,7 @@ process merge_paired_end_cleaned {
 
 /**
 	Community Characterisation - STEP 1. Performs taxonomic binning and estimates the 
-	microbial relative abundancies. 
-
-	MetaPhlAn and its databases of clade-specific markers
-	are used to infers the presence and relative abundance of the organisms (at the specie/ 
-	strain level) that are present in the sample and to estimate their relative abundance.
+	microbial relative abundancies using MetaPhlAn and its databases of clade-specific markers.
 */
 
 
@@ -695,7 +691,7 @@ process profile_taxa {
 	
 	input:
 	tuple val(name), file(reads) from to_profile_taxa_decontaminated.mix(to_profile_taxa_merged).mix(reads_profile_taxa)
-	file(bowtie2db) from Channel.fromPath( params.metaphlan_databases, type: 'dir' )
+	file (bowtie2db) from Channel.fromPath( params.metaphlan_databases, type: 'dir' )
 	
 	output:
 	tuple val(name), path("*.biom") into to_alpha_diversity
@@ -707,7 +703,7 @@ process profile_taxa {
 	
 	script:
 	"""
-	#If a file with the same name is already present, Metaphlan2 will crash
+	#If a file with the same name is already present, Metaphlan2 used to crash, leaving this here just in case
 	rm -rf ${name}_bt2out.txt
 	
 	metaphlan --input_type fastq --tmp_dir=. --biom ${name}.biom --bowtie2out=${name}_bt2out.txt --bowtie2db $bowtie2db --bt2_ps ${params.bt2options} --nproc ${task.cpus} $reads ${name}_metaphlan_bugs_list.tsv &> profile_taxa_mqc.txt
@@ -719,6 +715,50 @@ process profile_taxa {
 }
 
 
+/**
+	Community Characterisation - STEP 2. Performs the functional annotation using HUMAnN.
+*/
+
+process profile_function {
+	
+    tag "$name"
+
+	//Enable multicontainer settings
+    conda (params.enable_conda ? params.conda_biobakery : null)
+    if (workflow.containerEngine == 'singularity') {
+        container params.singularity_container_biobakery
+    } else {
+        container params.docker_container_biobakery
+    }
+
+	publishDir "${params.outdir}/${params.prefix}", mode: 'copy', pattern: "*.{tsv,log}"
+	
+	input:
+	tuple val(name), file(reads) from to_profile_functions_decontaminated.mix(to_profile_functions_merged).mix(reads_profile_functions)
+	tuple val(name), file(metaphlan_bug_list) from to_profile_function_bugs
+	file (chocophlan) from Channel.fromPath( params.chocophlan, type: 'dir' )
+	file (uniref) from Channel.fromPath( params.uniref, type: 'dir')
+	
+    output:
+	file "*_HUMAnN.log"
+	file "*_genefamilies.tsv"
+	file "*_pathcoverage.tsv"
+	file "*_pathabundance.tsv"
+	file "profile_functions_mqc.yaml" into profile_functions_log
+
+	when:
+	params.mode != "QC"
+
+	script:
+	"""
+	#HUMAnN will uses the list of species detected by the profile_taxa process
+	humann --input $reads --output . --output-basename ${name} --taxonomic-profile $metaphlan_bug_list --nucleotide-database $chocophlan --protein-database $uniref --pathways metacyc --threads ${task.cpus} --memory-use minimum &> ${name}_HUMAnN.log 
+	
+	# MultiQC doesn't have a module for humann yet. As a consequence, I
+	# had to create a YAML file with all the info I need via a bash script
+	bash scrape_profile_functions.sh ${name} ${name}_HUMAnN.log > profile_functions_mqc.yaml
+ 	"""
+}
 
 // ------------------------------------------------------------------------------   
 //	MULTIQC LOGGING
