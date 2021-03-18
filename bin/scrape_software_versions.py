@@ -9,18 +9,20 @@ regexes = {
     'Nextflow': ['v_nextflow.txt', r"(\S+)"],
     'FastQC': ['v_fastqc.txt', r"(\S+)"],
     'BBmap': ['v_bbmap.txt', r"(\S+)"],
-    'MultiQC': ['v_multiqc.txt', r"(\S+)"],
     'MetaPhlAn': ['v_metaphlan.txt', r"MetaPhlAn version (\S+)"],
-    'HUMAnN': ['v_humann.txt', r"humann v(\S+)"]
+    'HUMAnN': ['v_humann.txt', r"humann v(\S+)"],
+    'qiime': ['v_qiime.txt', r"(\S+)"],
+    'MultiQC': ['v_multiqc.txt', r"(\S+)"]
 }
 results = OrderedDict()
 results['YAMP'] = '<span style="color:#999999;\">N/A</span>'
 results['Nextflow'] = '<span style="color:#999999;\">N/A</span>'
 results['FastQC'] = '<span style="color:#999999;\">N/A</span>'
 results['BBmap'] = '<span style="color:#999999;\">N/A</span>'
-results['MultiQC'] = '<span style="color:#999999;\">N/A</span>'
 results['MetaPhlAn'] = '<span style="color:#999999;\">N/A</span>'
 results['HUMAnN'] = '<span style="color:#999999;\">N/A</span>'
+results['qiime'] = '<span style="color:#999999;\">N/A</span>'
+results['MultiQC'] = '<span style="color:#999999;\">N/A</span>'
 
 # Search each file using its regex
 for k, v in regexes.items():

@@ -10,17 +10,17 @@ percentage=`printf "%.2f" $percentage`
 time=$(grep "Total time:" dedup_mqc.txt | cut -d: -f 2 | cut -f 2 | sed 's/s\./s/g')
 
 # Dump to YAML
-echo "id: 'deduplication'" > dedup_mqc.yaml
-echo "section_name: 'YAMP Deduplication'" >> dedup_mqc.yaml
-echo "section_href: 'https://github.com/alesssia/yamp'" >> dedup_mqc.yaml
-echo "plot_type: 'html'" >> dedup_mqc.yaml
-echo "description: 'This information is collected at run time from the software output.'" >> dedup_mqc.yaml
-echo "data: |" >> dedup_mqc.yaml
-echo "    <dl class="dl-horizontal">" >> dedup_mqc.yaml
-echo "        <dt>Reads In:</dt><dd>"$totR"</dd>" >> dedup_mqc.yaml
-echo "        <dt>Duplicated Found:</dt><dd>"$remR"</dd>" >> dedup_mqc.yaml
-echo "        <dt>Surviving:</dt><dd>"$survivedR" ("$percentage"%)</dd>" >> dedup_mqc.yaml
-echo "        <dt>Total time:</dt><dd>"$time"</dd>" >> dedup_mqc.yaml
-echo "    </dl>" >> dedup_mqc.yaml
+echo "id: 'deduplication'"
+echo "section_name: 'YAMP Deduplication'" 
+echo "section_href: 'https://github.com/alesssia/yamp'" 
+echo "plot_type: 'html'" 
+echo "description: 'This information is collected at run time from the software output.'" 
+echo "data: |" 
+echo "    <dl class="dl-horizontal">" 
+echo "        <dt>Reads In:</dt><dd>"$totR"</dd>" 
+echo "        <dt>Duplicated Found:</dt><dd>"$remR"</dd>" 
+echo "        <dt>Surviving:</dt><dd>"$survivedR" ("$percentage"%)</dd>" 
+echo "        <dt>Total time:</dt><dd>"$time"</dd>" 
+echo "    </dl>" 
 
 

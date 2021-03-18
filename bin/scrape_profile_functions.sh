@@ -9,18 +9,18 @@ unaligned_reads_translated=$(grep "Unaligned reads after translated alignment:" 
 
 
 # Dump to YAML (header)
-echo "id: 'humann'" > profile_functions_mqc.yaml
-echo "section_name: 'HUMAnN'" >> profile_functions_mqc.yaml
-echo "section_href: 'https://github.com/alesssia/yamp'" >> profile_functions_mqc.yaml
-echo "plot_type: 'html'" >> profile_functions_mqc.yaml
-echo "description: 'This information is collected at run time from the software output.'" >> profile_functions_mqc.yaml
-echo "data: |" >> profile_functions_mqc.yaml
-echo "    <dl class="dl-horizontal">" >> profile_functions_mqc.yaml
-echo  "        <dt>Selected from prescreen</dt><dd>"${tot_species_prescreeing}" species</dd>" >> profile_functions_mqc.yaml
-echo  "        <dt>Selected species explain</dt><dd>"${selected_species_explain}"</dd>" >> profile_functions_mqc.yaml
-echo  "        <dt>Unaligned</dt><dd>"${unaligned_reads_nucleotide}" reads unaligned after nucleotide alignment</dd>" >> profile_functions_mqc.yaml
-echo  "        <dt>Unaligned</dt><dd>"${unaligned_reads_translated}" reads unaligned after translated alignment</dd>" >> profile_functions_mqc.yaml
-echo  "        <dt>Total gene families</dt><dd>"${tot_gene_family}" (after translated alignment)</dd>" >> profile_functions_mqc.yaml
-echo  "        <dt>Complete log</dt><dd>"$1"_HUMAnN2.log</dd>" >> profile_functions_mqc.yaml
-echo "    </dl>" >> profile_functions_mqc.yaml
+echo "id: 'humann'"
+echo "section_name: 'HUMAnN'" 
+echo "section_href: 'https://github.com/alesssia/yamp'" 
+echo "plot_type: 'html'" 
+echo "description: 'This information is collected at run time from the software output.'" 
+echo "data: |" 
+echo "    <dl class="dl-horizontal">" 
+echo  "        <dt>Selected from prescreen</dt><dd>"${tot_species_prescreeing}" species</dd>" 
+echo  "        <dt>Selected species explain</dt><dd>"${selected_species_explain}"</dd>" 
+echo  "        <dt>Unaligned</dt><dd>"${unaligned_reads_nucleotide}" reads unaligned after nucleotide alignment</dd>" 
+echo  "        <dt>Unaligned</dt><dd>"${unaligned_reads_translated}" reads unaligned after translated alignment</dd>" 
+echo  "        <dt>Total gene families</dt><dd>"${tot_gene_family}" (after translated alignment)</dd>" 
+echo  "        <dt>Complete log</dt><dd>"$1"_HUMAnN2.log</dd>" 
+echo "    </dl>" 
 
