@@ -180,18 +180,18 @@ if (params.mode != "characterisation")
 }
 
 // TODO: complete
-/*if (params.mode != "QC")
+if (params.mode != "QC")
 {
 	if (params.enable_conda){
-
+		summary['biobakery'] = "biobakery::humann"
 	} else if (workflow.containerEngine == 'singularity') {
-
-	} else if (workflow.containerEngine == 'singularity') {
-
+		summary['biobakery'] = "biobakery/workflows:3.0.0.a.6.metaphlanv3.0.7"
+	} else if (workflow.containerEngine == 'docker') {
+		summary['biobakery'] = "biobakery/workflows:3.0.0.a.6.metaphlanv3.0.7"
 	} else {
-
+		summary['biobakery'] = "No container information"
 	}
-}*/
+}
 
 if(workflow.profile == 'awsbatch'){
 	summary['AWS Region'] = params.awsregion
@@ -281,15 +281,25 @@ ${summary.collect { k,v -> "            <dt>$k</dt><dd>$v</dd>" }.join("\n")}
 
 process get_software_versions {
 
+	//Starting the biobakery container. I need to run metaphlan and Humann to get
+	//their version number (due to the fact that they live in the same conrtainer)
+    conda (params.enable_conda ? params.conda_biobakery : null)
+    if (workflow.containerEngine == 'singularity') {
+        container params.singularity_container_biobakery
+    } else {
+        container params.docker_container_biobakery
+    }
+
 	output:
 	file "software_versions_mqc.yaml" into software_versions_yaml
 
 	script:
-	// TODO nf-core: Get all tools to print their version number here
+	// TODO: Get all tools to print their version number here
 	//I am using a multi-containers scenarios, supporting conda, docker, and singularity
 	//with the software at a specific version (the same for all platforms). Therefore, I
-	//will simply parse the version from there. 
-	//Overkill, TODO: think of something better 
+	//will simply parse the version from there. Perhaps overkill, but who cares?  
+	//This is not true for the biobakery suite (metaphlan/humann) which extract the 
+	//information at runtime from the actula commands (see comment above)
 	"""
 	echo $workflow.manifest.version > v_pipeline.txt
 	echo $workflow.nextflow.version > v_nextflow.txt
@@ -297,7 +307,10 @@ process get_software_versions {
 	echo $params.conda_fastqc | cut -d= -f 2 > v_fastqc.txt
 	echo $params.conda_bbmap | cut -d= -f 2 > v_bbmap.txt
 	echo $params.conda_multiqc | cut -d= -f 2 > v_multiqc.txt
-
+	
+	metaphlan --version > v_metaphlan.txt
+	humann --version > v_humann.txt
+	
 	scrape_software_versions.py > software_versions_mqc.yaml
 	"""
 }
@@ -310,7 +323,7 @@ process get_software_versions {
 	  deduplication is not run)
 */
 
-if(params.singleEnd) {
+if (params.singleEnd) {
 	Channel
 	.from([[params.prefix, [file(params.reads1)]]])
 	.into { read_files_fastqc; read_files_dedup; read_files_synthetic_contaminants }
@@ -352,7 +365,7 @@ process dedup {
 	file "dedup_mqc.yaml" into dedup_log
 	
 	when:
-	(params.mode == "QC" || params.mode == "complete") && params.dedup
+	params.mode != "characterisation" && params.dedup
 
 	script:
 	// This is to deal with single and paired end reads
@@ -407,7 +420,7 @@ process remove_synthetic_contaminants {
 	file "synthetic_contaminants_mqc.yaml" into synthetic_contaminants_log
 	
 	when:
-	params.mode == "QC" || params.mode == "complete"
+	params.mode != "characterisation"
 
    	script:
 	def input = params.singleEnd ? "in=\"${reads[0]}\"" :  "in1=\"${reads[0]}\" in2=\"${reads[1]}\""
@@ -455,7 +468,7 @@ process trim {
 	file "trimming_mqc.yaml" into trimming_log
 	
 	when:
-	params.mode == "QC" || params.mode == "complete"
+	params.mode != "characterisation"
 
    	script:
 	def input = params.singleEnd ? "in=\"${reads[0]}\"" :  "in1=\"${reads[0]}\" in2=\"${reads[1]}\""
@@ -503,7 +516,7 @@ process index_foreign_genome {
 	path("ref/", type: 'dir') into ref_foreign_genome
 	
 	when:
-	(params.mode == "QC" || params.mode == "complete") && params.foreign_genome_ref == ""
+	params.mode != "characterisation" && params.foreign_genome_ref == ""
 
 	script:
 	"""
@@ -541,12 +554,12 @@ process decontaminate {
 
 	output:
 	tuple val(name), path("*_QCd.fq.gz") into qcd_reads
-	//tuple val(name), path("*_QCd.fq.gz") to_profile_taxa
-	//tuple val(name), path("*_QCd.fq.gz") to_profile_functions
+	tuple val(name), path("*_QCd.fq.gz") into to_profile_taxa_decontaminated
+	tuple val(name), path("*_QCd.fq.gz") into to_profile_functions_decontaminated
 	file "decontamination_mqc.yaml" into decontaminate_log
 
 	when:
-	params.mode == "QC" || params.mode == "complete"
+	params.mode != "characterisation"
 
 	script:
 	// When paired-end are used, decontamination is carried on idependently on paired reads
@@ -585,19 +598,126 @@ process quality_assessment {
     }
 	
 	publishDir "${params.outdir}/${params.prefix}/fastqc", mode: 'copy' //,
-        //saveAs: {filename -> filename.indexOf(".zip") > 0 ? "fastqc_zips/$filename" : "$filename"}
 
     input:
     set val(name), file(reads) from read_files_fastqc.mix(qcd_reads)
 
     output:
     path "*_fastqc.{zip,html}" into fastqc_log
+	
+	when:
+	params.mode != "characterisation"
 
     script:
     """
     fastqc -q $reads
     """
 }
+
+// ------------------------------------------------------------------------------   
+//  COMMUNITY CHARACTERISATION 
+// ------------------------------------------------------------------------------   
+
+// The user will specify the clean file either as a single clean file (that is the YAMP
+// default behaviour), or as two files (foward/reverse). ]
+// In the former case, the user will set singleEnd = true and only one file will be 
+// selected and used direcly for taxa and community profiling.
+// In the latter case, the user will set singleEnd = false and provide two files, that will
+// be merged before feeding the relevant channels for profiling.
+if (params.mode == "characterisation" && params.singleEnd) {
+	Channel
+	.from([[params.prefix, [file(params.reads1)]]])
+	.into { reads_profile_taxa; reads_profile_functions }
+	
+	//Initialise empty channels
+	reads_merge_paired_end_cleaned = Channel.empty()
+	merge_paired_end_cleaned_log = Channel.empty()
+} else if (params.mode == "characterisation" && !params.singleEnd) {
+	Channel
+	.from([[params.prefix, [file(params.reads1), file(params.reads2)]]] )
+	.set { reads_merge_paired_end_cleaned }
+	
+	//Stage boilerplate log
+	merge_paired_end_cleaned_log = Channel.from(file("$baseDir/assets/merge_paired_end_cleaned_mqc.yaml"))
+} else if (params.mode != "characterisation")
+	to_merge_paired_end_cleaned = Channel.empty()
+
+process merge_paired_end_cleaned {
+
+	tag "$name"
+		
+	input:
+	tuple val(name), file(reads) from reads_merge_paired_end_cleaned
+	
+	output:
+	tuple val(name), path("*_QCd.fq.gz") into to_profile_taxa_merged
+	tuple val(name), path("*_QCd.fq.gz") into to_profile_functions_merged
+	
+	when:
+	params.mode == "characterisation" && !params.singleEnd
+
+   	script:
+	"""
+	# This step will have no logging because the information are not relevant
+	# I will simply use a boilerplate YAML to record that this has happened
+	# If the files were not compressed, they will be at this stage
+	if (file ${reads[0]} | grep -q compressed ) ; then
+	    cat ${reads[0]} ${reads[1]} > ${name}_QCd.fq.gz
+	else
+		cat ${reads[0]} ${reads[1]} | gzip > ${name}_QCd.fq.gz
+	fi
+	"""
+}
+
+/**
+	Community Characterisation - STEP 1. Performs taxonomic binning and estimates the 
+	microbial relative abundancies. 
+
+	MetaPhlAn and its databases of clade-specific markers
+	are used to infers the presence and relative abundance of the organisms (at the specie/ 
+	strain level) that are present in the sample and to estimate their relative abundance.
+*/
+
+
+process profile_taxa {
+
+    tag "$name"
+
+	//Enable multicontainer settings
+    conda (params.enable_conda ? params.conda_biobakery : null)
+    if (workflow.containerEngine == 'singularity') {
+        container params.singularity_container_biobakery
+    } else {
+        container params.docker_container_biobakery
+    }
+
+	publishDir "${params.outdir}/${params.prefix}", mode: 'copy', pattern: "*.{biom,tsv}"
+	
+	input:
+	tuple val(name), file(reads) from to_profile_taxa_decontaminated.mix(to_profile_taxa_merged).mix(reads_profile_taxa)
+	file(bowtie2db) from Channel.fromPath( params.metaphlan_databases, type: 'dir' )
+	
+	output:
+	tuple val(name), path("*.biom") into to_alpha_diversity
+	tuple val(name), path("*_metaphlan_bugs_list.tsv") into to_profile_function_bugs
+	file "profile_taxa_mqc.yaml" into profile_taxa_log
+	
+	when:
+	params.mode != "QC"
+	
+	script:
+	"""
+	#If a file with the same name is already present, Metaphlan2 will crash
+	rm -rf ${name}_bt2out.txt
+	
+	metaphlan --input_type fastq --tmp_dir=. --biom ${name}.biom --bowtie2out=${name}_bt2out.txt --bowtie2db $bowtie2db --bt2_ps ${params.bt2options} --nproc ${task.cpus} $reads ${name}_metaphlan_bugs_list.tsv &> profile_taxa_mqc.txt
+	
+	# MultiQC doesn't have a module for Metaphlan yet. As a consequence, I
+	# had to create a YAML file with all the info I need via a bash script
+	bash scrape_profile_taxa_log.sh > profile_taxa_mqc.yaml
+	"""
+}
+
 
 
 // ------------------------------------------------------------------------------   
@@ -627,14 +747,15 @@ process log {
 
 	input:
 	file multiqc_config
-	// TODO nf-core: Add in log files from your new processes for MultiQC to find!
 	file workflow_summary from create_workflow_summary(summary)
 	file "software_versions_mqc.yaml" from software_versions_yaml
-	path 'fastqc/*' from fastqc_log.collect().ifEmpty([])
-	file "dedup_mqc.yaml" from dedup_log
-	file "synthetic_contaminants_mqc.yaml" from synthetic_contaminants_log
-	file "trimming_mqc.yaml" from trimming_log
-	file "decontamination_mqc.yaml" from decontaminate_log
+	path "fastqc/*" from fastqc_log.collect().ifEmpty([])
+	file "dedup_mqc.yaml" from dedup_log.ifEmpty([])
+	file "synthetic_contaminants_mqc.yaml" from synthetic_contaminants_log.ifEmpty([])
+	file "trimming_mqc.yaml" from trimming_log.ifEmpty([])
+	file "decontamination_mqc.yaml" from decontaminate_log.ifEmpty([])
+	file "merge_paired_end_cleaned_mqc.yaml" from merge_paired_end_cleaned_log.ifEmpty([])
+	file "profile_taxa_mqc.yaml" from profile_taxa_log.ifEmpty([])
 	
 	output:
 	path "*multiqc_report*.html" into multiqc_report

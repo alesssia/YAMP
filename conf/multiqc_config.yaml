@@ -12,6 +12,7 @@ run_modules:
     - fastqc
 
 module_order:
+    - custom_content
     - fastqc:
         name: 'FastQC (Raw reads)'
         anchor: 'fastqc_raw'
@@ -33,17 +34,21 @@ skip_generalstats: true
 # Report order
 report_section_order:
     fastqc_raw:
-      order: 10
+      order: 20
     deduplication:
-      order: 9
+      order: 19
     synthetic-contaminants:
-      order: 8
+      order: 18
     trimming:
-      order: 7
+      order: 17
     decontamination:
-      order: 6
+      order: 16
     fastqc_qcd:
-      order: 5
+      order: 15
+    merge_paired_end_cleaned:
+      order: 14
+    metaphlan:
+      order: 13
     software-versions:
       order: -1
     workflow-summary:
