@@ -51,6 +51,8 @@ report_section_order:
       order: 13
     humann:
       order: 12
+    alpha-diversity:
+      order: 11
     software-versions:
       order: -1
     workflow-summary:

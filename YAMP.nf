@@ -163,34 +163,43 @@ if (params.mode != "characterisation")
 	if (params.enable_conda){
 		summary['BBmap'] = "bioconda::bbmap=38.87-0"
 		summary['FastQC'] = "bioconda::fastqc=0.11.9-0"
-		summary['MultiQC'] = "bioconda::multiqc=1.9-1"
 	} else if (workflow.containerEngine == 'singularity') {
 	   	summary['BBmap'] = "https://depot.galaxyproject.org/singularity/bbmap:38.87--h1296035_0"
 		summary['FastQC'] = "https://depot.galaxyproject.org/singularity/fastqc:0.11.9--0"
-		summary['MultiQC'] = "https://depot.galaxyproject.org/singularity/multiqc:1.9--py_1"
 	} else if (workflow.containerEngine == 'docker') {
     	summary['BBmap'] = "quay.io/biocontainers/bbmap:38.87--h1296035_0"
 		summary['FastQC'] = "quay.io/biocontainers/fastqc:0.11.9--0"
-		summary['MultiQC'] = "quay.io/biocontainers/multiqc:1.9--py_1"
 	} else {
 		summary['BBmap'] = "No container information"
 		summary['FastQC'] = "No container information"
-		summary['MultiQC'] = "No container information"
 	}
 }
 
-// TODO: complete
 if (params.mode != "QC")
 {
 	if (params.enable_conda){
 		summary['biobakery'] = "biobakery::humann"
+		summary['qiime'] = "NA"
 	} else if (workflow.containerEngine == 'singularity') {
 		summary['biobakery'] = "biobakery/workflows:3.0.0.a.6.metaphlanv3.0.7"
+		summary['qiime'] = "qiime2/core:2020.8"
 	} else if (workflow.containerEngine == 'docker') {
 		summary['biobakery'] = "biobakery/workflows:3.0.0.a.6.metaphlanv3.0.7"
+		summary['qiime'] = "qiime2/core:2020.8"
 	} else {
 		summary['biobakery'] = "No container information"
+		summary['qiime'] = "No container information"
 	}
+}
+
+if (params.enable_conda){
+	summary['MultiQC'] = "bioconda::multiqc=1.9-1"
+} else if (workflow.containerEngine == 'singularity') {
+	summary['MultiQC'] = "https://depot.galaxyproject.org/singularity/multiqc:1.9--py_1"
+} else if (workflow.containerEngine == 'docker') {
+	summary['MultiQC'] = "quay.io/biocontainers/multiqc:1.9--py_1"
+} else {
+	summary['MultiQC'] = "No container information"
 }
 
 if(workflow.profile == 'awsbatch'){
@@ -231,7 +240,13 @@ if (params.mode != "characterisation")
 
 if (params.mode != "QC")
 {
-	//TODO add MP/QUIIME/HM3 options
+    //BowTie2 databases for metaphlan
+    summary['MetaPhlAn database'] = params.metaphlan_databases
+    summary['Bowtie2 options'] = params.bt2options
+  
+    // ChocoPhlAn and UniRef databases
+	summary['Chocophlan database'] = params.chocophlan
+	summary['Uniref database'] = params.uniref
 }
 
 //Folders
@@ -294,7 +309,6 @@ process get_software_versions {
 	file "software_versions_mqc.yaml" into software_versions_yaml
 
 	script:
-	// TODO: Get all tools to print their version number here
 	//I am using a multi-containers scenarios, supporting conda, docker, and singularity
 	//with the software at a specific version (the same for all platforms). Therefore, I
 	//will simply parse the version from there. Perhaps overkill, but who cares?  
@@ -640,7 +654,12 @@ if (params.mode == "characterisation" && params.singleEnd) {
 	//Stage boilerplate log
 	merge_paired_end_cleaned_log = Channel.from(file("$baseDir/assets/merge_paired_end_cleaned_mqc.yaml"))
 } else if (params.mode != "characterisation")
-	to_merge_paired_end_cleaned = Channel.empty()
+{
+	reads_merge_paired_end_cleaned = Channel.empty()
+	merge_paired_end_cleaned_log = Channel.empty()
+	reads_profile_taxa = Channel.empty()
+	reads_profile_functions = Channel.empty()
+}
 
 process merge_paired_end_cleaned {
 
@@ -675,6 +694,9 @@ process merge_paired_end_cleaned {
 */
 
 
+// Defines channels for bowtie2_metaphlan_databases file 
+Channel.fromPath( params.metaphlan_databases, type: 'dir', checkIfExists: true ).set { bowtie2_metaphlan_databases }
+
 process profile_taxa {
 
     tag "$name"
@@ -691,7 +713,7 @@ process profile_taxa {
 	
 	input:
 	tuple val(name), file(reads) from to_profile_taxa_decontaminated.mix(to_profile_taxa_merged).mix(reads_profile_taxa)
-	file (bowtie2db) from Channel.fromPath( params.metaphlan_databases, type: 'dir' )
+	file (bowtie2db) from bowtie2_metaphlan_databases
 	
 	output:
 	tuple val(name), path("*.biom") into to_alpha_diversity
@@ -708,6 +730,10 @@ process profile_taxa {
 	
 	metaphlan --input_type fastq --tmp_dir=. --biom ${name}.biom --bowtie2out=${name}_bt2out.txt --bowtie2db $bowtie2db --bt2_ps ${params.bt2options} --nproc ${task.cpus} $reads ${name}_metaphlan_bugs_list.tsv &> profile_taxa_mqc.txt
 	
+	#Metaphlan report "Metaphlan_Analysis" as SampleID, so I edit it
+	sed -i \"s/Metaphlan_Analysis/${name}/g\" ${name}_metaphlan_bugs_list.tsv 
+	sed -i \"s/MetaPhlAn_Analysis/${name}/g\" ${name}.biom
+	
 	# MultiQC doesn't have a module for Metaphlan yet. As a consequence, I
 	# had to create a YAML file with all the info I need via a bash script
 	bash scrape_profile_taxa_log.sh > profile_taxa_mqc.yaml
@@ -718,6 +744,10 @@ process profile_taxa {
 /**
 	Community Characterisation - STEP 2. Performs the functional annotation using HUMAnN.
 */
+
+// Defines channels for bowtie2_metaphlan_databases file 
+Channel.fromPath( params.chocophlan, type: 'dir', checkIfExists: true ).set { chocophlan_databases }
+Channel.fromPath( params.uniref, type: 'dir', checkIfExists: true ).set { uniref_databases }
 
 process profile_function {
 	
@@ -736,8 +766,8 @@ process profile_function {
 	input:
 	tuple val(name), file(reads) from to_profile_functions_decontaminated.mix(to_profile_functions_merged).mix(reads_profile_functions)
 	tuple val(name), file(metaphlan_bug_list) from to_profile_function_bugs
-	file (chocophlan) from Channel.fromPath( params.chocophlan, type: 'dir' )
-	file (uniref) from Channel.fromPath( params.uniref, type: 'dir')
+	file (chocophlan) from chocophlan_databases
+	file (uniref) from uniref_databases
 	
     output:
 	file "*_HUMAnN.log"
@@ -759,6 +789,63 @@ process profile_function {
 	bash scrape_profile_functions.sh ${name} ${name}_HUMAnN.log > profile_functions_mqc.yaml
  	"""
 }
+
+
+/**
+	Community Characterisation - STEP 3. Evaluates several alpha-diversity measures. 
+
+*/
+
+
+process alpha_diversity {
+
+    tag "$name"
+
+	//Enable multicontainer settings
+    conda (params.enable_conda ? params.conda_qiime2 : null)
+    if (workflow.containerEngine == 'singularity') {
+        container params.singularity_container_qiime2
+    } else {
+        container params.docker_container_qiime2
+    }
+
+	publishDir "${params.outdir}/${params.prefix}", mode: 'copy', pattern: "*.{tsv}"
+	
+	input:
+	tuple val(name), file(metaphlan_bug_list) from to_alpha_diversity
+		
+    output:
+	file "*_alpha_diversity.tsv"
+	file "alpha_diversity_mqc.yaml" into alpha_diversity_log
+	
+	when:
+	params.mode != "QC"
+
+	script:
+	"""
+	#It checks if the profiling was successful, that is if identifies at least three species
+	n=\$(grep -o s__ $metaphlan_bug_list | wc -l  | cut -d\" \" -f 1)
+	if (( n <= 3 )); then
+		#The file should be created in order to be returned
+		touch ${name}_alpha_diversity.tsv 
+	else
+		echo $name > ${name}_alpha_diversity.tsv
+		qiime tools import --input-path $metaphlan_bug_list --type 'FeatureTable[Frequency]' --input-format BIOMV100Format --output-path ${name}_abundance_table.qza
+		for alpha in ace berger_parker_d brillouin_d chao1 chao1_ci dominance doubles enspie esty_ci fisher_alpha gini_index goods_coverage heip_e kempton_taylor_q lladser_pe margalef mcintosh_d mcintosh_e menhinick michaelis_menten_fit osd pielou_e robbins shannon simpson simpson_e singles strong
+		do
+			qiime diversity alpha --i-table ${name}_abundance_table.qza --p-metric \$alpha --output-dir \$alpha &> /dev/null
+			qiime tools export --input-path \$alpha/alpha_diversity.qza --output-path \${alpha} &> /dev/null
+			value=\$(sed -n '2p' \${alpha}/alpha-diversity.tsv | cut -f 2)
+		    echo -e  \$alpha'\t'\$value 
+		done >> ${name}_alpha_diversity.tsv  
+	fi
+
+	# MultiQC doesn't have a module for qiime yet. As a consequence, I
+	# had to create a YAML file with all the info I need via a bash script
+	bash generate_alpha_diversity_log.sh \${n} > alpha_diversity_mqc.yaml	
+	"""
+}
+
 
 // ------------------------------------------------------------------------------   
 //	MULTIQC LOGGING
@@ -796,6 +883,8 @@ process log {
 	file "decontamination_mqc.yaml" from decontaminate_log.ifEmpty([])
 	file "merge_paired_end_cleaned_mqc.yaml" from merge_paired_end_cleaned_log.ifEmpty([])
 	file "profile_taxa_mqc.yaml" from profile_taxa_log.ifEmpty([])
+	file "profile_functions_mqc.yaml" from profile_functions_log.ifEmpty([])
+	file "alpha_diversity_mqc.yaml" from alpha_diversity_log.ifEmpty([])
 	
 	output:
 	path "*multiqc_report*.html" into multiqc_report
@@ -808,4 +897,7 @@ process log {
 	mv multiqc_data ${params.prefix}_multiqc_data_${params.mode}
 	"""
 }
+
+
+
 
