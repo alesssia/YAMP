@@ -1,0 +1,10 @@
+
+id: 'merge_paired_end_cleaned'
+section_name: 'YAMP Merge QCd paired-end reads'
+section_href: 'https://github.com/alesssia/yamp'
+plot_type: 'html'
+description: 'This information is collected at run time from the software output.'
+data: |
+    <dl class=dl-horizontal>
+        <dt>Action:</dt><dd>Inputted paired-end reads were concatenated in a single file.</dd>
+    </dl>
