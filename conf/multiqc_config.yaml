@@ -17,8 +17,8 @@ module_order:
         name: 'FastQC (Raw reads)'
         anchor: 'fastqc_raw'
         info: 'This section of the report shows FastQC results on the raw reads.'
-        path_filters:
-            - './fastqc/*R*_fastqc.zip'
+        path_filters_exclude:
+            - './fastqc/*QCd_fastqc.zip'
     - fastqc:
         name: 'FastQC (QCd reads)'
         anchor: 'fastqc_qcd'

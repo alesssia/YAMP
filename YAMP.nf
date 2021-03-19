@@ -33,35 +33,59 @@ def versionMessage()
 def helpMessage() 
 {
 	log.info"""
-		
-	YET ANOTHER METAGENOMIC PIPELINE (YAMP) - Version: ${workflow.manifest.version} 
-	
-	This pipeline is distributed in the hope that it will be useful
-	but WITHOUT ANY WARRANTY. See the GNU GPL v3.0 for more details.
-	
-	Please report comments and bugs at https://github.com/alesssia/YAMP/issues.
-	Check https://github.com/alesssia/YAMP for updates, and refer to
-	https://github.com/alesssia/YAMP/wiki for more details.
-	
-	Usage: 
-	nextflow run YAMP.nf --reads1 R1 --reads2 R2 --prefix mysample --outdir path --mode MODE  
-	[options] [-with-docker|-with-singularity]
-	
-	Mandatory arguments:
-	--reads1   R1      Forward (if paired-end) OR all reads (if single-end) file path
-	[--reads2] R2      Reverse reads file path (only if paired-end library layout)
-	--prefix   prefix  Prefix used to name the result files
-	--outdir   path    Output directory (will be outdir/prefix/)
-	--mode     <QC|characterisation|complete>
-	
-	Options:
-	--singleEnd     <true|false>   whether the layout is single-end
-	--dedup         <true|false>   whether to perform de-duplication
 
-	Please refer to nextflow.config for more options.
-		
-	YAMP supports FASTQ and compressed FASTQ files.
-	""".stripIndent()
+YET ANOTHER METAGENOMIC PIPELINE (YAMP) - Version: ${workflow.manifest.version} 
+
+This pipeline is distributed in the hope that it will be useful
+but WITHOUT ANY WARRANTY. See the GNU GPL v3.0 for more details.
+
+Please report comments and bugs at https://github.com/alesssia/YAMP/issues.
+Check https://github.com/alesssia/YAMP for updates, and refer to
+https://github.com/alesssia/YAMP/wiki for more details.
+
+  Usage: 
+  nextflow run YAMP.nf --reads1 R1 --reads2 R2 --prefix mysample --outdir path [options] 
+  
+  Mandatory arguments:
+    --reads1   R1      Forward (if paired-end) OR all reads (if single-end) file path
+    [--reads2] R2      Reverse reads file path (only if paired-end library layout)
+    --prefix   prefix  Prefix used to name the result files
+    --outdir   path    Output directory (will be outdir/prefix/)
+  
+  Main options:
+    --mode       <QC|characterisation|complete>
+    --singleEnd  <true|false>   whether the layout is single-end
+    --dedup      <true|false>   whether to perform de-duplication
+  
+  Other options:
+  BBduk parameters for removing synthetic contaminants and trimming:
+    --qin                 <33|64> Input quality offset 
+    --kcontaminants       value   kmer length used for identifying contaminants
+    --phred               value   regions with average quality BELOW this will be trimmed 
+    --minlength           value   reads shorter than this after trimming will be discarded
+    --mink                value   shorter kmers at read tips to look for 
+    --hdist               value   maximum Hamming distance for ref kmers
+    --artefacts           path    FASTA file with artefacts
+    --phix174ill          path    FASTA file with phix174_ill
+    --adapters            path    FASTA file with adapters         
+  
+  BBwrap parameters for decontamination:
+    --foreign_genome      path    FASTA file for contaminant (pan)genome
+    --foreign_genome_ref  path    folder for for contaminant (pan)genome (pre indexed)
+    --mind                value   approximate minimum alignment identity to look for
+    --maxindel            value   longest indel to look for
+    --bwr                 value   restrict alignment band to this
+  
+  MetaPhlAn parameters for taxa profiling:
+    --metaphlan_databases path    folder for the MetaPhlAn database
+    --bt2options          value   BowTie2 options
+  
+  HUMANn parameters for functional profiling:
+    --chocophlan          path    folder for the ChocoPhlAn database
+    --uniref              path	  folder for the UniRef database
+
+YAMP supports FASTQ and compressed FASTQ files.
+"""
 }
 
 /**
@@ -212,17 +236,24 @@ summary['Running parameters'] = ""
 summary['Reads'] = "[" + params.reads1 + ", " + params.reads2 + "]"
 summary['Prefix'] = params.prefix
 summary['Running mode'] = params.mode
+summary['Layout'] = params.singleEnd ? 'Single-End' : 'Paired-End'
 
 if (params.mode != "characterisation") 
 {
-	summary['Layout'] = params.singleEnd ? 'Single-End' : 'Paired-End'
 	summary['Performing de-duplication'] = params.dedup
 
+	//remove_synthetic_contaminants 
+	summary['Synthetic contaminants'] = ""
+	summary['Artefacts'] = params.artefacts
+	summary['Phix174ill'] = params.phix174ill
+
 	//Trimming
+	summary['Adapters'] = params.adapters
 	summary['Trimming parameters'] = ""
 	summary['Input quality offset'] = params.qin == 33 ? 'ASCII+33' : 'ASCII+64'
 	summary['Min phred score'] = params.phred
 	summary['Min length'] = params.minlength
+	summary['kmer lenght'] = params.kcontaminants
 	summary['Shorter kmer'] = params.mink 
 	summary['Max Hamming distance'] = params.hdist 
 
@@ -241,10 +272,12 @@ if (params.mode != "characterisation")
 if (params.mode != "QC")
 {
     //BowTie2 databases for metaphlan
+	summary['MetaPhlAn parameters'] = ""
     summary['MetaPhlAn database'] = params.metaphlan_databases
     summary['Bowtie2 options'] = params.bt2options
   
     // ChocoPhlAn and UniRef databases
+	summary['HUMAnN parameters'] = ""
 	summary['Chocophlan database'] = params.chocophlan
 	summary['Uniref database'] = params.uniref
 }
@@ -256,9 +289,6 @@ summary['Working dir'] = workflow.workDir
 summary['Output dir'] = params.outdir
 summary['Script dir'] = workflow.projectDir
 summary['Lunching dir'] = workflow.launchDir
-
-//FIXME: adding ending time
-
 
 log.info summary.collect { k,v -> "${k.padRight(27)}: $v" }.join("\n")
 log.info ""
@@ -318,12 +348,14 @@ process get_software_versions {
 	echo $workflow.manifest.version > v_pipeline.txt
 	echo $workflow.nextflow.version > v_nextflow.txt
 
-	echo $params.conda_fastqc | cut -d= -f 2 > v_fastqc.txt
-	echo $params.conda_bbmap | cut -d= -f 2 > v_bbmap.txt
-	echo $params.conda_multiqc | cut -d= -f 2 > v_multiqc.txt
+	echo $params.docker_container_fastqc | cut -d: -f 2 > v_fastqc.txt
+	echo $params.docker_container_bbmap | cut -d: -f 2 > v_bbmap.txt
 	
 	metaphlan --version > v_metaphlan.txt
 	humann --version > v_humann.txt
+	echo $params.docker_container_qiime2 | cut -d: -f 2 > v_qiime.txt
+	
+	echo $params.docker_container_multiqc | cut -d: -f 2 > v_multiqc.txt
 	
 	scrape_software_versions.py > software_versions_mqc.yaml
 	"""
@@ -405,7 +437,7 @@ process dedup {
 
 //When the de-suplication is not done, the raw file should be pushed in the corret channel
 //FIXME: make this also optional?
-if (!params.dedup) {
+if (!params.dedup & params.mode != "characterisation") {
 	to_synthetic_contaminants = read_files_synthetic_contaminants
 	dedup_log = Channel.from(file("$baseDir/assets/no_dedup.yaml"))
 }
@@ -512,8 +544,6 @@ process trim {
 Channel.fromPath( "${params.foreign_genome}", checkIfExists: true ).set { foreign_genome }
 
 process index_foreign_genome {
-
-	tag "$name"
 
 	//Enable multicontainer settings
     conda (params.enable_conda ? params.conda_bbmap : null)
@@ -653,12 +683,18 @@ if (params.mode == "characterisation" && params.singleEnd) {
 	
 	//Stage boilerplate log
 	merge_paired_end_cleaned_log = Channel.from(file("$baseDir/assets/merge_paired_end_cleaned_mqc.yaml"))
+	
+	//Initialise empty channels
+	reads_profile_taxa = Channel.empty()
+	reads_profile_functions = Channel.empty()
 } else if (params.mode != "characterisation")
 {
+	//Initialise empty channels
 	reads_merge_paired_end_cleaned = Channel.empty()
 	merge_paired_end_cleaned_log = Channel.empty()
 	reads_profile_taxa = Channel.empty()
 	reads_profile_functions = Channel.empty()
+	reads_profile_taxa = Channel.empty()
 }
 
 process merge_paired_end_cleaned {
@@ -728,15 +764,11 @@ process profile_taxa {
 	#If a file with the same name is already present, Metaphlan2 used to crash, leaving this here just in case
 	rm -rf ${name}_bt2out.txt
 	
-	metaphlan --input_type fastq --tmp_dir=. --biom ${name}.biom --bowtie2out=${name}_bt2out.txt --bowtie2db $bowtie2db --bt2_ps ${params.bt2options} --nproc ${task.cpus} $reads ${name}_metaphlan_bugs_list.tsv &> profile_taxa_mqc.txt
-	
-	#Metaphlan report "Metaphlan_Analysis" as SampleID, so I edit it
-	sed -i \"s/Metaphlan_Analysis/${name}/g\" ${name}_metaphlan_bugs_list.tsv 
-	sed -i \"s/MetaPhlAn_Analysis/${name}/g\" ${name}.biom
+	metaphlan --input_type fastq --tmp_dir=. --biom ${name}.biom --bowtie2out=${name}_bt2out.txt --bowtie2db $bowtie2db --bt2_ps ${params.bt2options} --add_viruses --sample_id ${name} --nproc ${task.cpus} $reads ${name}_metaphlan_bugs_list.tsv &> profile_taxa_mqc.txt
 	
 	# MultiQC doesn't have a module for Metaphlan yet. As a consequence, I
 	# had to create a YAML file with all the info I need via a bash script
-	bash scrape_profile_taxa_log.sh > profile_taxa_mqc.yaml
+	bash scrape_profile_taxa_log.sh ${name}_metaphlan_bugs_list.tsv > profile_taxa_mqc.yaml
 	"""
 }
 
@@ -795,7 +827,6 @@ process profile_function {
 	Community Characterisation - STEP 3. Evaluates several alpha-diversity measures. 
 
 */
-
 
 process alpha_diversity {
 
@@ -888,7 +919,7 @@ process log {
 	
 	output:
 	path "*multiqc_report*.html" into multiqc_report
-	path "*_data*"
+	path "*multiqc_data*"
 
 	script:
 	"""
@@ -897,7 +928,5 @@ process log {
 	mv multiqc_data ${params.prefix}_multiqc_data_${params.mode}
 	"""
 }
-
-
 
 

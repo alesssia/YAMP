@@ -21,7 +21,7 @@ echo "        <dt>"Detected"</dt><dd></dd>"
 tree=(Kingdom Phylum Class Order Family Genus Species)
 for i in {1..7}
 do
-	c=$(sed '1d' test_random_genomes_metaphlan_bugs_list.tsv | cut -d"|" -f $i | grep -v "k__" | cut -f 1  | sort | uniq | sed '/^\\s*\$/d' | wc -l | cut -d" " -f 1)
+	c=$(sed '1d' $1 | cut -d"|" -f $i | grep -v "k__" | cut -f 1  | sort | uniq | sed '/^\\s*\$/d' | wc -l | cut -d" " -f 1)
 	echo  "        <dt>"${tree[(($i-1))]}"</dt><dd>"$c"</dd>" 
 done
 
