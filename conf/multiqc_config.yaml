@@ -41,18 +41,20 @@ report_section_order:
       order: 18
     trimming:
       order: 17
-    decontamination:
+    indexing-foreign-genome:
       order: 16
-    fastqc_qcd:
+    decontamination:
       order: 15
-    merge_paired_end_cleaned:
+    fastqc_qcd:
       order: 14
-    metaphlan:
+    merge_paired_end_cleaned:
       order: 13
-    humann:
+    metaphlan:
       order: 12
-    alpha-diversity:
+    humann:
       order: 11
+    alpha-diversity:
+      order: 10
     software-versions:
       order: -1
     workflow-summary:

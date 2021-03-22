@@ -531,6 +531,13 @@ process trim {
 // Defines channels for foreign_genome file 
 Channel.fromPath( "${params.foreign_genome}", checkIfExists: true ).set { foreign_genome }
 
+//Stage boilerplate log when the contaminant (pan)genome is indexed
+if (params.mode != "characterisation" && params.foreign_genome_ref == "") {
+	index_foreign_genome_log = Channel.from(file("$baseDir/assets/foreign_genome_indexing_mqc.yaml"))
+} else {
+	index_foreign_genome_log = Channel.empty()
+}
+
 process index_foreign_genome {
 
 	//Enable multicontainer settings
@@ -541,7 +548,7 @@ process index_foreign_genome {
     }
 
 	input:
-	file(foreign_genome) from foreign_genome
+	file(foreign_genome) from foreign_genome 
 
 	output:
 	path("ref/", type: 'dir') into ref_foreign_genome
@@ -554,8 +561,8 @@ process index_foreign_genome {
 	#Sets the maximum memory to the value requested in the config file
 	maxmem=\$(echo ${task.memory} | sed 's/ //g' | sed 's/B//g')
 
-	# This step will have no logging because the information saved by bbmap are not relevant
-	bbmap.sh -Xmx\"\$maxmem\" ref=$foreign_genome &> foreign_genome_index_mqc.txt
+	# This step will have a boilerplate log because the information saved by bbmap are not relevant
+	bbmap.sh -Xmx\"\$maxmem\" ref=$foreign_genome &> foreign_genome_index_mqc.txt	
 	"""
 }
 
@@ -892,6 +899,7 @@ process log {
 	file "dedup_mqc.yaml" from dedup_log.ifEmpty([])
 	file "synthetic_contaminants_mqc.yaml" from synthetic_contaminants_log.ifEmpty([])
 	file "trimming_mqc.yaml" from trimming_log.ifEmpty([])
+	file "foreign_genome_indexing_mqc.yaml" from index_foreign_genome_log.ifEmpty([])
 	file "decontamination_mqc.yaml" from decontaminate_log.ifEmpty([])
 	file "merge_paired_end_cleaned_mqc.yaml" from merge_paired_end_cleaned_log.ifEmpty([])
 	file "profile_taxa_mqc.yaml" from profile_taxa_log.ifEmpty([])
