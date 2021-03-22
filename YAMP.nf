@@ -184,10 +184,7 @@ if(workflow.containerEngine) summary['Container'] = workflow.container
 
 if (params.mode != "characterisation") 
 {
-	if (params.enable_conda){
-		summary['BBmap'] = "bioconda::bbmap=38.87-0"
-		summary['FastQC'] = "bioconda::fastqc=0.11.9-0"
-	} else if (workflow.containerEngine == 'singularity') {
+	if (workflow.containerEngine == 'singularity') {
 	   	summary['BBmap'] = "https://depot.galaxyproject.org/singularity/bbmap:38.87--h1296035_0"
 		summary['FastQC'] = "https://depot.galaxyproject.org/singularity/fastqc:0.11.9--0"
 	} else if (workflow.containerEngine == 'docker') {
@@ -201,10 +198,7 @@ if (params.mode != "characterisation")
 
 if (params.mode != "QC")
 {
-	if (params.enable_conda){
-		summary['biobakery'] = "biobakery::humann"
-		summary['qiime'] = "NA"
-	} else if (workflow.containerEngine == 'singularity') {
+	if (workflow.containerEngine == 'singularity') {
 		summary['biobakery'] = "biobakery/workflows:3.0.0.a.6.metaphlanv3.0.7"
 		summary['qiime'] = "qiime2/core:2020.8"
 	} else if (workflow.containerEngine == 'docker') {
@@ -216,9 +210,7 @@ if (params.mode != "QC")
 	}
 }
 
-if (params.enable_conda){
-	summary['MultiQC'] = "bioconda::multiqc=1.9-1"
-} else if (workflow.containerEngine == 'singularity') {
+if (workflow.containerEngine == 'singularity') {
 	summary['MultiQC'] = "https://depot.galaxyproject.org/singularity/multiqc:1.9--py_1"
 } else if (workflow.containerEngine == 'docker') {
 	summary['MultiQC'] = "quay.io/biocontainers/multiqc:1.9--py_1"
@@ -328,7 +320,6 @@ process get_software_versions {
 
 	//Starting the biobakery container. I need to run metaphlan and Humann to get
 	//their version number (due to the fact that they live in the same conrtainer)
-    conda (params.enable_conda ? params.conda_biobakery : null)
     if (workflow.containerEngine == 'singularity') {
         container params.singularity_container_biobakery
     } else {
@@ -339,7 +330,7 @@ process get_software_versions {
 	file "software_versions_mqc.yaml" into software_versions_yaml
 
 	script:
-	//I am using a multi-containers scenarios, supporting conda, docker, and singularity
+	//I am using a multi-containers scenarios, supporting docker and singularity
 	//with the software at a specific version (the same for all platforms). Therefore, I
 	//will simply parse the version from there. Perhaps overkill, but who cares?  
 	//This is not true for the biobakery suite (metaphlan/humann) which extract the 
@@ -396,7 +387,6 @@ process dedup {
     tag "$name"
     
 	//Enable multicontainer settings
-    conda (params.enable_conda ? params.conda_bbmap : null)
     if (workflow.containerEngine == 'singularity') {
         container params.singularity_container_bbmap
     } else {
@@ -451,7 +441,6 @@ process remove_synthetic_contaminants {
 	tag "$name"
 	
 	//Enable multicontainer settings
-    conda (params.enable_conda ? params.conda_bbmap : null)
     if (workflow.containerEngine == 'singularity') {
         container params.singularity_container_bbmap
     } else {
@@ -499,7 +488,6 @@ process trim {
 	tag "$name"
 	
 	//Enable multicontainer settings
-    conda (params.enable_conda ? params.conda_bbmap : null)
     if (workflow.containerEngine == 'singularity') {
         container params.singularity_container_bbmap
     } else {
@@ -546,7 +534,6 @@ Channel.fromPath( "${params.foreign_genome}", checkIfExists: true ).set { foreig
 process index_foreign_genome {
 
 	//Enable multicontainer settings
-    conda (params.enable_conda ? params.conda_bbmap : null)
     if (workflow.containerEngine == 'singularity') {
         container params.singularity_container_bbmap
     } else {
@@ -584,7 +571,6 @@ process decontaminate {
     tag "$name"
 
 	//Enable multicontainer settings
-    conda (params.enable_conda ? params.conda_bbmap : null)
     if (workflow.containerEngine == 'singularity') {
         container params.singularity_container_bbmap
     } else {
@@ -634,7 +620,6 @@ process quality_assessment {
     tag "$name"
 	
 	//Enable multicontainer settings
-    conda (params.enable_conda ? params.conda_fastqc : null)
     if (workflow.containerEngine == 'singularity') {
         container params.singularity_container_fastqc
     } else {
@@ -738,7 +723,6 @@ process profile_taxa {
     tag "$name"
 
 	//Enable multicontainer settings
-    conda (params.enable_conda ? params.conda_biobakery : null)
     if (workflow.containerEngine == 'singularity') {
         container params.singularity_container_biobakery
     } else {
@@ -786,7 +770,6 @@ process profile_function {
     tag "$name"
 
 	//Enable multicontainer settings
-    conda (params.enable_conda ? params.conda_biobakery : null)
     if (workflow.containerEngine == 'singularity') {
         container params.singularity_container_biobakery
     } else {
@@ -833,7 +816,6 @@ process alpha_diversity {
     tag "$name"
 
 	//Enable multicontainer settings
-    conda (params.enable_conda ? params.conda_qiime2 : null)
     if (workflow.containerEngine == 'singularity') {
         container params.singularity_container_qiime2
     } else {
@@ -896,7 +878,6 @@ process log {
 	
 	publishDir "${params.outdir}/${params.prefix}", mode: 'copy'
 
-    conda (params.enable_conda ? params.conda_multiqc : null)
     if (workflow.containerEngine == 'singularity') {
         container params.singularity_container_multiqc
     } else {
