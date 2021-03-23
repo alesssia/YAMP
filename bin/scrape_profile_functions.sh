@@ -21,6 +21,6 @@ echo  "        <dt>Selected species explain</dt><dd>"${selected_species_explain}
 echo  "        <dt>Unaligned</dt><dd>"${unaligned_reads_nucleotide}" reads unaligned after nucleotide alignment</dd>" 
 echo  "        <dt>Unaligned</dt><dd>"${unaligned_reads_translated}" reads unaligned after translated alignment</dd>" 
 echo  "        <dt>Total gene families</dt><dd>"${tot_gene_family}" (after translated alignment)</dd>" 
-echo  "        <dt>Complete log</dt><dd>"$1"_HUMAnN2.log</dd>" 
+echo  "        <dt>Complete log</dt><dd>"$1"_HUMAnN.log</dd>" 
 echo "    </dl>" 
 

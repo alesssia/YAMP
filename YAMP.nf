@@ -44,7 +44,7 @@ Check https://github.com/alesssia/YAMP for updates, and refer to
 https://github.com/alesssia/YAMP/wiki for more details.
 
   Usage: 
-  nextflow run YAMP.nf --reads1 R1 --reads2 R2 --prefix mysample --outdir path [options] 
+  nextflow run YAMP.nf --reads1 R1 --reads2 R2 --prefix prefix --outdir path [options] 
   
   Mandatory arguments:
     --reads1   R1      Forward (if paired-end) OR all reads (if single-end) file path
@@ -63,8 +63,8 @@ https://github.com/alesssia/YAMP/wiki for more details.
     --kcontaminants       value   kmer length used for identifying contaminants
     --phred               value   regions with average quality BELOW this will be trimmed 
     --minlength           value   reads shorter than this after trimming will be discarded
-    --mink                value   shorter kmers at read tips to look for 
-    --hdist               value   maximum Hamming distance for ref kmers
+    --mink                value   shorter kmer at read tips to look for 
+    --hdist               value   maximum Hamming distance for ref kmer
     --artefacts           path    FASTA file with artefacts
     --phix174ill          path    FASTA file with phix174_ill
     --adapters            path    FASTA file with adapters         
@@ -319,7 +319,7 @@ ${summary.collect { k,v -> "            <dt>$k</dt><dd>$v</dd>" }.join("\n")}
 process get_software_versions {
 
 	//Starting the biobakery container. I need to run metaphlan and Humann to get
-	//their version number (due to the fact that they live in the same conrtainer)
+	//their version number (due to the fact that they live in the same container)
     if (workflow.containerEngine == 'singularity') {
         container params.singularity_container_biobakery
     } else {
@@ -334,7 +334,7 @@ process get_software_versions {
 	//with the software at a specific version (the same for all platforms). Therefore, I
 	//will simply parse the version from there. Perhaps overkill, but who cares?  
 	//This is not true for the biobakery suite (metaphlan/humann) which extract the 
-	//information at runtime from the actula commands (see comment above)
+	//information at runtime from the actual commands (see comment above)
 	"""
 	echo $workflow.manifest.version > v_pipeline.txt
 	echo $workflow.nextflow.version > v_nextflow.txt
@@ -425,7 +425,7 @@ process dedup {
 	is performed.
 */
 
-//When the de-suplication is not done, the raw file should be pushed in the corret channel
+//When the de-duplication is not done, the raw file should be pushed in the correct channel
 //FIXME: make this also optional?
 if (!params.dedup & params.mode != "characterisation") {
 	to_synthetic_contaminants = read_files_synthetic_contaminants
@@ -568,7 +568,7 @@ process index_foreign_genome {
 
 //Channel.fromPath( "${params.foreign_genome_ref}", checkIfExists: true ).set { ref_foreign_genome }
 
-//When the indexed contaminant (pan)genome is already available, its path should be pushed in the corret channel
+//When the indexed contaminant (pan)genome is already available, its path should be pushed in the correct channel
 if (params.foreign_genome_ref != "") {
 	ref_foreign_genome = Channel.from(file(params.foreign_genome_ref))
 }
@@ -599,7 +599,7 @@ process decontaminate {
 	params.mode != "characterisation"
 
 	script:
-	// When paired-end are used, decontamination is carried on idependently on paired reads
+	// When paired-end are used, decontamination is carried on independently on paired reads
 	// and on singleton reads thanks to BBwrap, that calls BBmap once on the paired reads
 	// and once on the singleton ones, merging the results on a single output file
 	def input = params.singleEnd ? "in=\"${reads[0]}\"" :  "in1=\"${reads[0]}\",\"${reads[2]}\" in2=\"${reads[1]}\",null"
@@ -655,9 +655,9 @@ process quality_assessment {
 // ------------------------------------------------------------------------------   
 
 // The user will specify the clean file either as a single clean file (that is the YAMP
-// default behaviour), or as two files (foward/reverse). ]
+// default behaviour), or as two files (forward/reverse). ]
 // In the former case, the user will set singleEnd = true and only one file will be 
-// selected and used direcly for taxa and community profiling.
+// selected and used directly for taxa and community profiling.
 // In the latter case, the user will set singleEnd = false and provide two files, that will
 // be merged before feeding the relevant channels for profiling.
 if (params.mode == "characterisation" && params.singleEnd) {
@@ -718,7 +718,7 @@ process merge_paired_end_cleaned {
 
 /**
 	Community Characterisation - STEP 1. Performs taxonomic binning and estimates the 
-	microbial relative abundancies using MetaPhlAn and its databases of clade-specific markers.
+	microbial relative abundances using MetaPhlAn and its databases of clade-specific markers.
 */
 
 
