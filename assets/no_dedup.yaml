@@ -1,0 +1,9 @@
+id: 'deduplication'
+section_name: 'YAMP Deduplication'
+section_href: 'https://github.com/alesssia/yamp'
+plot_type: 'html'
+description: 'This information is collected at run time from the software output.'
+data: |
+    <dl class=dl-horizontal>
+        <dt>Deduplication:</dt><dd>not performed</dd>
+    </dl>

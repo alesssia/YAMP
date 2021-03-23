@@ -1,0 +1,9 @@
+id: 'indexing-foreign-genome'
+section_name: 'YAMP Indexing Foreign (pan)genome'
+section_href: 'https://github.com/alesssia/yamp'
+plot_type: 'html'
+description: 'This information is collected at run time from the software output.'
+data: |
+    <dl class=dl-horizontal>
+        <dt>Indexing:</dt><dd>successfully performed</dd>
+    </dl>
