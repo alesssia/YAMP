@@ -83,13 +83,13 @@ The simplest way to use YAMP (after having satisfied all the dependencies and re
 
 ```
 nextflow run YAMP.nf --reads1 myfile_R1.fq.gz --reads2 myfile_R2.fq.gz --prefix my_sample 
-   --outdir output_folder --mode complete --profile base,docker
+   --outdir output_folder --mode complete -profile base,docker
 ```
 
 or you can run a test with the following command:
 
 ```
-nextflow run YAMP.nf --profile test,docker
+nextflow run YAMP.nf -profile test,docker
 ```
 
 More information on the YAMP parameters and running mode are available in the [YAMP wiki](https://github.com/alesssia/YAMP/wiki), where there are also several tutorials.
@@ -102,13 +102,13 @@ YAMP also provides a `docker` and a `singularity` profile that can be used to te
 
 ```
 nextflow run YAMP.nf --reads1 myfile_R1.fq.gz --reads2 myfile_R2.fq.gz --prefix my_sample 
-   --outdir output_folder --mode complete --profile base,docker
+   --outdir output_folder --mode complete -profile base,docker
 ```
 
 
 ```
 nextflow run YAMP.nf --reads1 myfile_R1.fq.gz --reads2 myfile_R2.fq.gz --prefix my_sample 
-   --outdir output_folder --mode complete --profile base,singularity
+   --outdir output_folder --mode complete -profile base,singularity
 ```
 
 Please note that Nextflow is not included in the Docker container and should be installed as explained [here](https://www.nextflow.io/docs/latest/getstarted.html).
@@ -135,6 +135,12 @@ YAMP is licensed under GNU GPL v3.
 
 ## Changelog
 
+### 0.9.5.1 / 2021-04-13
+
+Fixes:
+* Fixed a bug in `nextflow.config` 
+* Fixed a typo in this README  (_Usage_ and _Using Docker or Singularity_ sections)
+
 ### 0.9.5 / 2021-03-23
 
 Enhancements:
@@ -153,7 +159,6 @@ Fixes:
 * Solved problem with compressed files in `characterisation` mode
 * Fixed warnings (Nextflow v19.10.0)
 
-
 ### 0.9.4.2 / 2018-09-14
 
 Fixes:
@@ -171,19 +176,16 @@ Fixes:
 * Solved problem in loading data when using single library layout
 * Solved problem in loading data in 'characterisation` mode
 
-
 ### 0.9.4 / 2017-12-07
 
 Enhancements:
 * Improved logs
 * Version and help message printed upon request
 
-
 ### 0.9.3.1 / 2017-10-04
 
 Enhancements:
 * Users no longer need to specify the number of threads and the maximum amount of memory -- both values are now read from the `nextflow.config` file
-
 
 ### 0.9.3 / 2017-08-30
  
@@ -191,7 +193,6 @@ Enhancements:
  * YAMP can now handle both paired-end and single-end reads
  * The de-duplication step is now optional and can be skipped (default: true)
  
-
 ### 0.9.2 / 2017-07-10 
 
 Enhancements:
