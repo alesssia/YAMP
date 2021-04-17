@@ -83,7 +83,7 @@ The simplest way to use YAMP (after having satisfied all the dependencies and re
 
 ```
 nextflow run YAMP.nf --reads1 myfile_R1.fq.gz --reads2 myfile_R2.fq.gz --prefix my_sample 
-   --outdir output_folder --mode complete -profile base,docker
+   --outdir output_folder --mode complete -profile standard,docker
 ```
 
 or you can run a test with the following command:
@@ -102,13 +102,13 @@ YAMP also provides a `docker` and a `singularity` profile that can be used to te
 
 ```
 nextflow run YAMP.nf --reads1 myfile_R1.fq.gz --reads2 myfile_R2.fq.gz --prefix my_sample 
-   --outdir output_folder --mode complete -profile base,docker
+   --outdir output_folder --mode complete -profile standard,docker
 ```
 
 
 ```
 nextflow run YAMP.nf --reads1 myfile_R1.fq.gz --reads2 myfile_R2.fq.gz --prefix my_sample 
-   --outdir output_folder --mode complete -profile base,singularity
+   --outdir output_folder --mode complete -profile standard,singularity
 ```
 
 Please note that Nextflow is not included in the Docker container and should be installed as explained [here](https://www.nextflow.io/docs/latest/getstarted.html).
