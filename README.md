@@ -125,7 +125,7 @@ Alessia would like to thank:
 - Paolo Di Tommaso, for helping her in using Nextflow properly and his infinite patience;
 - Brian Bushnell, for his helpful suggestions about how to successfully use the BBmap suite in a metagenomics context and for providing several useful resources;
 - The [nf-core](https://nf-co.re/) team (especially [Phil Ewels](https://github.com/ewels) and [Harshil Patel](https://github.com/drpatelh)) for the resources they have provided (some of the code from version 0.9.5 is yours!) and for the nice discussions;
-- All the users for their valuable feedbacks (especially Richard Davies [@richardjdavies](https://github.com/richardjdavies) and [Flavia Flaviani](https://github.com/flacchy)).
+- All the users for their valuable feedbacks (especially [Richard Davies](https://github.com/richardjdavies) and [Flavia Flaviani](https://github.com/flacchy)).
 
 
 ## License
@@ -134,6 +134,11 @@ YAMP is licensed under GNU GPL v3.
 
 
 ## Changelog
+
+### 0.9.5.3 / 2021-04-19
+
+Fixes:
+* Renamed `standard` profile as `base`
 
 ### 0.9.5.2 / 2021-04-16
 
