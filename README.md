@@ -11,13 +11,13 @@ YAMP is accompanied by a set of (customisable) containers, that saves the users 
 
 ## Table of contents
 
-- [Citation](#Citation)
+- [Citation](#citation)
 - [Dependencies](#dependencies)
 - [Installation](#installation)
-- [Other requirements](#other-requirements)
+- [External databases](#external-databases)
 - [Usage](#usage)
 - [Using Docker or Singularity](#using-docker-or-singularity)
-- [Troubleshooting](#Troubleshooting)
+- [Troubleshooting](#troubleshooting)
 - [Acknowledgements](#acknowledgements)
 - [License](#license)
 - [Changelog](#changelog)
@@ -70,9 +70,9 @@ YAMP requires a set of databases that are queried during its execution. Some of 
 
 - A FASTA file listing the adapter sequences to remove in the trimming step. A basic version is provided in this repository (`./assests/data/adapters.fa`), but please note that this file may need to be customised.
 - Two FASTA file describing synthetic contaminants. Basic versions are provided in this repository (`./assests/data/sequencing_artifacts.fa.gz` and `./assests/data/phix174_ill.ref.fa.gz`), but please note that both may need to be customised.
-- A FASTA file describing the contaminant (pan)genome. This file should be created by the users according to the contaminants present in their dataset. When analysing human metagenomes, we recommend always including the human genome. 
-- the BowTie2 database files for MetaPhlAn. These files should be downloaded the first time you run MetaPhlAn. 
-- the ChocoPhlAn and UniRef databases for HUMAnN. Both can be downloaded directly by HUMAnN. Please refer to their [webpage](https://huttenhower.sph.harvard.edu/humann) for details. 
+- A FASTA file describing the contaminant (pan)genome. This file should be created by the users according to the contaminants present in their dataset. When analysing human metagenomes, we recommend always including the human genome (as detailed in our [YAMP wiki](https://github.com/alesssia/YAMP/wiki/Getting-started#notes-on-the-contaminant-human-genome). 
+- the BowTie2 database files for MetaPhlAn. These files should be downloaded the first time you run MetaPhlAn -- or you can follow the alternative instructions available in the [YAMP wiki](https://github.com/alesssia/YAMP/wiki/Getting-started#notes-on-the-metaphlan-databases).
+- the ChocoPhlAn and UniRef databases for HUMAnN. Both can be downloaded directly by HUMAnN. Please refer to their [webpage](https://huttenhower.sph.harvard.edu/humann) and/or to the [YAMP wiki](https://github.com/alesssia/YAMP/wiki/Getting-started#notes-on-the-humann-databases) for details. 
 
 More details on these files and how to use and get them are available on our [wiki](https://github.com/alesssia/YAMP/wiki/Getting-started). Please read it carefully before using YAMP.
 
