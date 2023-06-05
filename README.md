@@ -135,6 +135,13 @@ YAMP is licensed under GNU GPL v3.
 
 ## Changelog
 
+### 0.9.6.0 / 2023-06-05
+
+Enhancements:
+- Update to Nextflow DSL.2 (:tada:)
+- Added two new testing profiles
+- Updated containers version (bbmap, fastqc, multiqc only)
+
 ### 0.9.5.3 / 2021-04-19
 
 Fixes:
